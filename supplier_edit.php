@@ -1,0 +1,215 @@
+<?php
+require_once 'db_config.php';
+
+if (isset($_POST['update'])) {
+
+    $eid = $_GET['editid'];
+
+    $companyname = $_POST['companyname'];
+    $staffname = $_POST['staffname'];
+    $contactnumber = $_POST['contactnumber'];
+    $email = $_POST['email'];
+    $address = $_POST['address'];
+
+    $sql = mysqli_query($conn, "UPDATE supplier_list SET companyname='$companyname', staffname='$staffname', contactnumber='$contactnumber', email='$email', address='$address' WHERE id='$eid'");
+
+    if ($sql) {
+        echo "<script>alert('Supplier Updated Successfully!')</script>;";
+        echo "<script>window.location.href='supplier.php'</script>";
+    } else {
+        echo "<script>alert('Supplier Updated Failed!')</script>";
+    }
+}
+
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Supplier Edit</title>
+
+    <!-- Montserrat Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+
+    <link href="https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css" rel="stylesheet">
+
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
+    <link href="https://cdn.datatables.net/1.10.25/css/dataTables.bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css\dashboard.css">
+</head>
+
+<body>
+    <div class="grid-container">
+
+        <!-- Header -->
+        <header class="header">
+            <div class="menu-icon" onclick="openSidebar()">
+                <span class="material-icons-outlined">menu</span>
+            </div>
+            <div class="header-left">
+                <span class="material-icons-outlined">search</span>
+            </div>
+            <div class="header-right">
+                <span class="material-icons-outlined">notifications</span>
+                <span class="material-icons-outlined">email</span>
+                <span class="material-icons-outlined">account_circle</span>
+            </div>
+        </header>
+        <!-- End Header -->
+
+        <!-- Sidebar -->
+        <aside id="sidebar">
+            <div class="sidebar-title">
+                <div class="sidebar-brand">
+                    <span class="material-icons-outlined">inventory</span> KONIKIM INC.
+                </div>
+                <span class="material-icons-outlined" onclick="closeSidebar()">close</span>
+            </div>
+
+            <ul class="sidebar-list">
+                <hr class="sidebar-divider hr-sidebar-divider">
+                <li class="sidebar-list-item">
+                    <a href="dashboard.php" target="_self">
+                        <span class="material-icons-outlined">dashboard</span> Dashboard
+                    </a>
+                </li>
+                <hr class="sidebar-divider hr-sidebar-divider">
+                <li class="sidebar-list-item">
+                    <a href="products.php" target="_self">
+                        <span class="material-icons-outlined">inventory_2</span> Products
+                    </a>
+                </li>
+                </hr>
+                <li class="sidebar-list-item">
+                    <a href="inventory.php" target="_self">
+                        <span class="material-icons-outlined">fact_check</span> Inventory
+                    </a>
+                </li>
+                <li class="sidebar-list-item">
+                    <a href="purchase_orders.php" target="_self">
+                        <span class="material-icons-outlined">add_shopping_cart</span> Purchase Orders
+                    </a>
+                </li>
+                <li class="sidebar-list-item">
+                    <a href="sales_orders.php" target="_self">
+                        <span class="material-icons-outlined">shopping_cart</span> Sales Orders
+                    </a>
+                </li>
+                <li class="sidebar-list-item">
+                    <a href="return_list.php" target="_self">
+                        <span class="material-icons-outlined">assignment_return</span> Return List
+                    </a>
+                </li>
+                <li class="sidebar-list-item">
+                    <a href="supplier.php" target="_self">
+                        <span class="material-icons-outlined">groups</span> Supplier List
+                    </a>
+                </li>
+                <li class="sidebar-list-item">
+                    <a href="reports.php" target="_self">
+                        <span class="material-icons-outlined">poll</span> Reports
+                    </a>
+                </li>
+                <hr class="sidebar-divider hr-sidebar-divider">
+                <li class="sidebar-list-item">
+                    <a href="user.php" target="_self">
+                        <span class="material-icons-outlined">manage_accounts</span> Users
+                    </a>
+                </li>
+                <li class="sidebar-list-item">
+                    <a href="sms.php" target="_self">
+                        <span class="material-icons-outlined">message</span> SMS
+                    </a>
+                </li>
+                <li class="sidebar-list-item">
+                    <a href="cms.php" target="_self">
+                        <span class="material-icons-outlined">settings</span> Settings
+                    </a>
+                </li>
+            </ul>
+
+        </aside>
+        <!-- End Sidebar -->
+
+        <!-- Main -->
+        <main class="main-container">
+            <div class="main-title">
+                <p class="font-weight-bold">SUPPLIER LIST</p>
+            </div>
+
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>Update Supplier</h3>
+                    </div>
+                </div>
+                <form method="POST">
+                    <?php
+                    $eid = $_GET['editid'];
+                    $sql = mysqli_query($conn, "SELECT * FROM supplier_list WHERE id='$eid'");
+                    while ($row = mysqli_fetch_array($sql)) {
+                    ?>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="companyname">Company Name</label>
+                                <input type="text" class="form-control" value="<?php echo $row['companyname'] ?>" name="companyname" placeholder="Enter Company Name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="staffname">Staff Name</label>
+                                <input type="text" class="form-control" value="<?php echo $row['staffname'] ?>" name="staffname" placeholder="Enter Staff Name" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="contactnumber">Contact Number</label>
+                                <input type="text" class="form-control" value="<?php echo $row['contactnumber'] ?>" name="contactnumber" placeholder="Enter Contact Number" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <label for="email">Email Address</label>
+                                <input type="text" class="form-control" value="<?php echo $row['email'] ?>" name="email" placeholder="Enter Email Address" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <label for="address">Address</label>
+                                <input type="text" class="form-control" value="<?php echo $row['address'] ?>" name="address" placeholder="Enter Address" required>
+                            </div>
+                        </div>
+                    <?php }
+                    ?>
+                    <div class="row" style="margin-top: 1%">
+                        <div class="col-md-6">
+                            <button type="text" name="update" class="btn btn-primary">Update</button>
+                            <a href="#" class="btn btn-success"> View Supplier List</a>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+        </main>
+    </div>
+    <!-- End Main -->
+
+    </div>
+
+    <!-- Scripts -->
+    <!-- ApexCharts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.3/apexcharts.min.js"></script>
+    <!-- Custom JS -->
+    <script src="js\scipt.js"></script>
+</body>
+
+</html>
