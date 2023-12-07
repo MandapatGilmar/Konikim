@@ -4,7 +4,7 @@ include 'db_config.php';
 
 
 // Generate Purchase Order Code
-$query = "SELECT id FROM purchase_order_list ORDER BY id DESC";
+$query = "SELECT id FROM purchase_orders ORDER BY id DESC";
 $result = mysqli_query($conn, $query);
 $purchasecode = "PO-00001";
 
@@ -22,49 +22,72 @@ if ($result && mysqli_num_rows($result) > 0) {
 // Check for form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $supplier = mysqli_real_escape_string($conn, $_POST['supplierValue']);
+    $purchasecode = mysqli_real_escape_string($conn, $_POST['purchasecode']);
     $productIds = $_POST['product_id'];
     $productQuantities = $_POST['product_quantity'];
     $productPrices = $_POST['product_price'];
-    $productunitprice = $_POST['product_total'];
-    // Additional attributes
-    $poDiscountTotal = $_POST['discount'];
-    $poTaxTotal = $_POST['tax'];
-    $poTax = $_POST['tax_perc'];
-    $poDiscount = $_POST['discount_perc'];
+    $productUnitPrices = $_POST['product_total'];
+    $poDiscountPerc = $_POST['discount_perc']; // Percentage of discount
+    $poTaxPerc = $_POST['tax_perc']; // Percentage of tax
     $poSubtotal = $_POST['sub-total'];
     $poGrandtotal = $_POST['grand-total'];
 
+    // Calculating total discount and tax based on percentages
+    $poDiscountTotal = $poSubtotal * ($poDiscountPerc / 100);
+    $poTaxTotal = $poSubtotal * ($poTaxPerc / 100);
+
     $conn->begin_transaction();
 
-    foreach ($productIds as $i => $productId) {
-        // Fetch product details from the database using product_id
-        $productQuery = "SELECT productname, productunit, productattributes, productcategory FROM product_list WHERE id = ?";
-        $productStmt = $conn->prepare($productQuery);
-        $productStmt->bind_param("i", $productId);
-        $productStmt->execute();
-        $productResult = $productStmt->get_result();
-        $productDetails = $productResult->fetch_assoc();
+    try {
+        // Insert into purchase_orders
+        $orderStmt = $conn->prepare("INSERT INTO purchase_orders (purchasecode, supplier, poSubtotal, poDiscount, poTax, poDiscountTotal, poTaxTotal, poGrandtotal, dateCreated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $orderStmt->bind_param("ssdddddd", $purchasecode, $supplier, $poSubtotal, $poDiscountPerc, $poTaxPerc, $poDiscountTotal, $poTaxTotal, $poGrandtotal);
+        $orderStmt->execute();
 
-        $productCategory = $productDetails['productcategory'];
-        $productName = $productDetails['productname'];
-        $productUnit = $productDetails['productunit'];
-        $productAttributes = $productDetails['productattributes'];
+        $purchase_order_id = $conn->insert_id;
 
-        // Insert into purchase_order_list
-        $stmt = $conn->prepare("INSERT INTO purchase_order_list (purchasecode, supplier, product_id, productname, productunit, productattributes, productcategory, productquantity, productprice, poSubtotal, poDiscount, poTax, poDiscountTotal, poTaxTotal, poGrandtotal, productunitprice) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("ssissssiiiiidddd", $purchasecode, $supplier, $productId, $productName, $productUnit, $productAttributes, $productCategory, $productQuantities[$i], $productPrices[$i], $poSubtotal, $poDiscount, $poTax, $poDiscountTotal, $poTaxTotal, $poGrandtotal, $productunitprice[$i]);
-        $stmt->execute();
+        // Prepare statement for inserting into purchase_order_items
+        $itemStmt = $conn->prepare("INSERT INTO purchase_order_items (purchase_order_id, product_id, productname, productunit, productattributes, productcategory, productprice, productquantity, productunitprice, poDiscount, poTax) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
-        if ($stmt->error) {
-            $conn->rollback();
-            echo "Error: " . htmlspecialchars($stmt->error);
-            exit;
+        foreach ($productIds as $i => $productId) {
+            // Fetch product details from the database
+            $productQuery = "SELECT productname, productunit, productattributes, productcategory FROM product_list WHERE id = ?";
+            $productStmt = $conn->prepare($productQuery);
+            $productStmt->bind_param("i", $productId);
+            $productStmt->execute();
+            $productResult = $productStmt->get_result();
+            $productDetails = $productResult->fetch_assoc();
+
+            $productName = $productDetails['productname'];
+            $productUnit = $productDetails['productunit'];
+            $productAttributes = $productDetails['productattributes'];
+            $productCategory = $productDetails['productcategory'];
+
+            // Calculate item-level discount and tax based on individual item price and quantity
+            $itemDiscount = $productUnitPrices[$i] * ($poDiscountPerc / 100);
+            $itemTax = $productUnitPrices[$i] * ($poTaxPerc / 100);
+
+            // Insert into purchase_order_items
+            $itemStmt->bind_param("iissssidddd", $purchase_order_id, $productId, $productName, $productUnit, $productAttributes, $productCategory, $productPrices[$i], $productQuantities[$i], $productUnitPrices[$i], $itemDiscount, $itemTax);
+            $itemStmt->execute();
+
+            if ($itemStmt->error) {
+                throw new Exception("Error: " . htmlspecialchars($itemStmt->error));
+            }
         }
-    }
 
-    $conn->commit();
-    header("Location: purchase_orders.php");
+        // Commit transaction
+        $conn->commit();
+        header("Location: purchase_orders.php");
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        $conn->rollback();
+        echo $e->getMessage();
+        exit;
+    }
 }
+
+
 
 // Rest of your code...
 ?>
