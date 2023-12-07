@@ -152,11 +152,8 @@ if (isset($_GET['delid'])) {
                                         <th>#</th>
                                         <th>PO Code</th>
                                         <th>Supplier</th>
-                                        <th>Product Name</th>
-                                        <th>Product Unit</th>
-                                        <th>Product Category</th>
-                                        <th>Product Attributes</th>
-                                        <th>Product Quantity</th>
+                                        <th>Items</th>
+                                        <th>Total</th>
                                         <th>Status</th>
                                         <th>Date Created</th>
                                         <th>Action</th>
@@ -165,7 +162,7 @@ if (isset($_GET['delid'])) {
                                 <tbody>
                                     <?php
                                     require_once 'db_config.php';
-                                    $sql = mysqli_query($conn, "SELECT * FROM purchase_order_list");
+                                    $sql = mysqli_query($conn, "SELECT po.*, COUNT(poi.id) AS itemCount FROM purchase_orders po LEFT JOIN purchase_order_items poi ON po.id = poi.purchase_order_id GROUP BY po.id");
                                     $count = 1;
                                     $row = mysqli_num_rows($sql);
                                     if ($row > 0) {
@@ -183,11 +180,8 @@ if (isset($_GET['delid'])) {
                                                 <td><?php echo $count ?></td>
                                                 <td><?php echo $row['purchasecode']; ?></td>
                                                 <td><?php echo $row['supplier']; ?></td>
-                                                <td><?php echo $row['productname']; ?></td>
-                                                <td><?php echo $row['productunit']; ?></td>
-                                                <td><?php echo $row['productcategory']; ?></td>
-                                                <td><?php echo $row['productattributes']; ?></td>
-                                                <td><?php echo $row['productquantity']; ?></td>
+                                                <td><?php echo $row['itemCount']; ?></td> <!-- Display the item count -->
+                                                <td><?php echo $row['poGrandtotal']; ?></td> <!-- Display the grand total -->
                                                 <td><span class="<?php echo $statusClass; ?>"><?php echo $statusString; ?></span></td> <!-- Use Bootstrap classes -->
                                                 <td><?php echo $row['dateCreated']; ?></td>
                                                 <td>

@@ -1,39 +1,57 @@
 <?php
 include 'db_config.php';
+
 if (isset($_POST['id'])) {
     $purchaseId = mysqli_real_escape_string($conn, $_POST['id']); // Prevent SQL Injection
-    // Query the database to fetch product details
-    $query = mysqli_query($conn, "SELECT * FROM purchase_order_list WHERE id = '$purchaseId'");
-    if ($row = mysqli_fetch_assoc($query)) {
+
+    // Query the database to fetch purchase order details
+    $orderQuery = mysqli_query($conn, "SELECT * FROM purchase_orders WHERE id = '$purchaseId'");
+    $orderDetails = mysqli_fetch_assoc($orderQuery);
+
+    if ($orderDetails) {
+        // Fetch related items for this purchase order
+        $itemsQuery = mysqli_query($conn, "SELECT * FROM purchase_order_items WHERE purchase_order_id = '$purchaseId'");
+
         // Start the table
         echo "<table class='table table-striped table-bordered'>";
-        echo "<tr><th>Field</th><th>Value</th></tr>"; // Table headers
+        // Table headers
+        echo "<thead><tr class='text-light bg-navy'>
+            <th class='text-center py-1 px-2'>#</th>
+            <th class='text-center py-1 px-2'>Qty</th>
+            <th class='text-center py-1 px-2'>Unit</th>
+            <th class='text-center py-1 px-2'>Item</th>
+            <th class='text-center py-1 px-2'>Attributes</th>
+            <th class='text-center py-1 px-2'>Price</th>
+            <th class='text-center py-1 px-2'>Total</th>
+        </tr></thead>";
+        echo "<tbody>";
 
-        // Display each field in a table row
-        echo "<tr><td><strong>Purchase Order Code:</strong></td><td>" . $row['purchasecode'] . "</td></tr>";
-        echo "<tr><td><strong>Supplier:</strong></td><td>" . $row['supplier'] . "</td></tr>";
-        echo "<tr><td><strong>Product Name:</strong></td><td>" . $row['productname'] . "</td></tr>";
-        echo "<tr><td><strong>Product Attributes:</strong></td><td>" . $row['productattributes'] . "</td></tr>";
-        echo "<tr><td><strong>Product Category:</strong></td><td>" . $row['productcategory'] . "</td></tr>";
-        echo "<tr><td><strong>Product Unit:</strong></td><td>" . $row['productunit'] . "</td></tr>";
-        echo "<tr><td><strong>Product Price:</strong></td><td>₱" . $row['productprice'] . "</td></tr>";
-        echo "<tr><td><strong>Product Quantity:</strong></td><td>" . $row['productquantity'] . "</td></tr>";
-        echo "<tr><td><strong>Purchase Order Subtotal:</strong></td><td>₱" . $row['poSubtotal'] . "</td></tr>";
-        echo "<tr><td><strong>Purchase Order Discount:</strong></td><td>₱" . $row['poDiscountTotal'] . "</td></tr>";
-        echo "<tr><td><strong>Purchase Order Tax:</strong></td><td>₱" . $row['poTaxTotal'] . "</td></tr>";
-        echo "<tr><td><strong>Purchase Order Total:</strong></td><td>₱" . $row['poGrandtotal'] . "</td></tr>";
-        echo "<p id='receivedText' style='display:none; text-align:center;'>Received</p>";
-        // End the table
-        echo "</table>";
+        // Display each item in a table row
+        $count = 1;
+        while ($itemRow = mysqli_fetch_assoc($itemsQuery)) {
+            $totalPrice = $itemRow['productprice'] * $itemRow['productquantity'];
+            echo "<tr>
+                <td class='text-center'>{$count}</td>
+                <td class='text-center'>{$itemRow['productquantity']}</td>
+                <td class='text-center'>{$itemRow['productunit']}</td>
+                <td class='text-center'>{$itemRow['productname']}</td>
+                <td class='text-center'>{$itemRow['productattributes']}</td>
+                <td class='text-center'>₱{$itemRow['productprice']}</td>
+                <td class='text-center'>₱{$totalPrice}</td>
+            </tr>";
+            $count++;
+        }
 
+        echo "</tbody></table>";
 
-        echo "<div style='text-align: center; margin-top: 20px;'>";
-        echo "<button id='receivedButton' class='btn btn-info btn-sm' onclick='handleReceived(" . $row['id'] . ")'>Received</button>";
-        echo "</div>";
-
-
-        // Placeholder for the received text
+        // Display purchase order totals
+        echo "<div class='totals'>
+            <p><strong>Subtotal:</strong> ₱{$orderDetails['poSubtotal']}</p>
+            <p><strong>Discount:</strong> ₱{$orderDetails['poDiscountTotal']}</p>
+            <p><strong>Tax:</strong> ₱{$orderDetails['poTaxTotal']}</p>
+            <p><strong>Grand Total:</strong> ₱{$orderDetails['poGrandtotal']}</p>
+        </div>";
     } else {
-        echo "<p class='text-danger'><b>Product details not found.</b></p>";
+        echo "<p class='text-danger'><b>Purchase order details not found.</b></p>";
     }
 }
