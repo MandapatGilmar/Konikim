@@ -1,40 +1,74 @@
 <?php
 require_once 'db_config.php';
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
+    // Extract and sanitize data from the form
+    $purchaseOrderId = filter_input(INPUT_GET, 'editid', FILTER_SANITIZE_NUMBER_INT);
+    $subtotal = filter_input(INPUT_POST, 'sub-total', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+    $discountPerc = filter_input(INPUT_POST, 'discount_perc', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+    $taxPerc = filter_input(INPUT_POST, 'tax_perc', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+    $discountTotal = filter_input(INPUT_POST, 'discount', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+    $taxTotal = filter_input(INPUT_POST, 'tax', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+    $grandtotal = filter_input(INPUT_POST, 'grand-total', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
 
-if (isset($_POST['update'])) {
+    // Begin transaction
+    $conn->begin_transaction();
 
+    // Update the purchase_orders table
+    $orderUpdateQuery = "UPDATE purchase_orders SET 
+                         poSubtotal = ?, 
+                         poDiscount = ?, 
+                         poDiscountTotal = ?, 
+                         poTax = ?, 
+                         poTaxTotal = ?, 
+                         poGrandtotal = ? 
+                         WHERE id = ?";
 
-    // Rest of your variables
-    $purchasecode = mysqli_real_escape_string($conn, $_POST['purchasecode']);
-    $supplier = mysqli_real_escape_string($conn, $_POST['supplierDropdown']);
-    $productname = mysqli_real_escape_string($conn, $_POST['productname']);
-    $productunit = mysqli_real_escape_string($conn, $_POST['productunit']);
-    $productcategory = mysqli_real_escape_string($conn, $_POST['productcategory']);
-    $productattributes = mysqli_real_escape_string($conn, $_POST['productattributes']);
-    $productprice = mysqli_real_escape_string($conn, $_POST['productprice']);
-    $productquantity = mysqli_real_escape_string($conn, $_POST['productquantity']);
-    $poDiscount = mysqli_real_escape_string($conn, $_POST['poDiscount']);
-    $poTax = mysqli_real_escape_string($conn, $_POST['poTax']);
-    $poSubtotal = floatval($_POST['poSubtotal']);
-    $poGrandtotal = floatval($_POST['poGrandtotal']);
-    $poDiscountTotal = floatval($_POST['poDiscountTotal']);
-    $poTaxTotal = floatval($_POST['poTaxTotal']);
-    $eid = intval($_GET['editid']);
+    $orderStmt = $conn->prepare($orderUpdateQuery);
+    $orderStmt->bind_param("ddddddi", $subtotal, $discountPerc, $discountTotal, $taxPerc, $taxTotal, $grandtotal, $purchaseOrderId);
 
-    // Update query
-    $query = "UPDATE purchase_order_list SET purchasecode = '$purchasecode', supplier = '$supplier', productname = '$productname', productunit = '$productunit', productcategory = '$productcategory', productattributes = '$productattributes', productprice = '$productprice', productquantity = '$productquantity', poDiscount = '$poDiscount', poTax = '$poTax', poSubtotal = '$poSubtotal', poGrandtotal = '$poGrandtotal', poDiscountTotal = '$poDiscountTotal', poTaxTotal = '$poTaxTotal' WHERE id = $eid";
-    $result = mysqli_query($conn, $query);
-
-    if ($result) {
-        echo "<script>alert('Purchase Order Updated Successfully!');</script>";
-        echo "<script>window.location.href='purchase_orders.php'</script>";
-    } else {
-        echo "Error: " . $query . "<br>" . mysqli_error($conn);
+    if (!$orderStmt->execute()) {
+        echo "Error updating order: " . $conn->error;
+        $conn->rollback();
+        exit();
     }
+    $orderStmt->close();
+
+    // Update each item in the purchase_order_items table
+    foreach ($_POST['productquantity'] as $itemId => $quantity) {
+        $itemId = filter_var($itemId, FILTER_SANITIZE_NUMBER_INT);
+        $quantity = filter_var($quantity, FILTER_SANITIZE_NUMBER_INT);
+        $price = filter_var($_POST['productprice'][$itemId], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+
+        $productunitprice = $quantity * $price;
+
+        $itemUpdateQuery = "UPDATE purchase_order_items SET 
+                            productquantity = ?, 
+                            productunitprice = ? 
+                            WHERE id = ? AND purchase_order_id = ?";
+
+        $itemStmt = $conn->prepare($itemUpdateQuery);
+        $itemStmt->bind_param("idii", $quantity, $productunitprice, $itemId, $purchaseOrderId);
+
+        if (!$itemStmt->execute()) {
+            echo "Error updating item: " . $conn->error;
+            $conn->rollback();
+            exit();
+        }
+        $itemStmt->close();
+    }
+
+    // Commit the transaction
+    $conn->commit();
+
+    // Close the database connection
+    $conn->close();
+
+    // Redirect to the purchase order list page
+    header('Location: purchase_orders.php');
+    exit();
 }
+
 ?>
-
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -58,6 +92,7 @@ if (isset($_POST['update'])) {
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css\dashboard.css">
+
 </head>
 
 <body>
@@ -175,8 +210,12 @@ if (isset($_POST['update'])) {
                     $poResult = $stmt->get_result();
 
                     if ($row = $poResult->fetch_assoc()) {
-                        $discountPerc = $row['poDiscount']; // Assuming this is the overall discount percentage for the order
-                        $taxPerc = $row['poTax']; // Assuming this is the overall tax percentage for the order
+                        $discountPerc = $row['poDiscount'];
+                        $taxPerc = $row['poTax'];
+                        $taxTotal = $row['poTaxTotal'];
+                        $discountTotal = $row['poDiscountTotal'];
+                        $subtotal = $row['poSubtotal'];
+                        $grandtotal = $row['poGrandtotal'];
                     ?>
                         <div class="row">
                             <div class="col-md-3" style="margin-bottom: 10px;">
@@ -224,12 +263,17 @@ if (isset($_POST['update'])) {
                                 ?>
                                     <tr>
                                         <td class="text-center"><?php echo $itemNumber; ?></td>
-                                        <td class="text-center"><input type="number" class="form-control" name="productquantity[]" value="<?php echo $itemRow['productquantity']; ?>"></td>
+                                        <td class="text-center">
+                                            <input type="number" class="form-control quantity-input" name="productquantity[]" value="<?php echo $itemRow['productquantity']; ?>">
+                                        </td>
                                         <td class="text-center"><?php echo htmlspecialchars($itemRow['productunit']); ?></td>
                                         <td class="text-center"><?php echo htmlspecialchars($itemRow['productname']); ?></td>
                                         <td class="text-center"><?php echo htmlspecialchars($itemRow['productattributes']); ?></td>
-                                        <td class="text-center"><?php echo htmlspecialchars($itemRow['productprice']); ?></td>
-                                        <td class="text-center"><?php echo number_format($totalPrice, 2); ?></td>
+                                        <td class="text-center">
+                                            <input type="text" class="form-control price-input" name="productprice[]" value="<?php echo htmlspecialchars($itemRow['productprice']); ?>" readonly>
+                                        </td>
+                                        <!-- Add a class for JavaScript to target -->
+                                        <td class="text-center item-total"><?php echo number_format($totalPrice, 2); ?></td>
                                     </tr>
                                 <?php
                                 }
@@ -238,9 +282,8 @@ if (isset($_POST['update'])) {
                             <tfoot>
                                 <tr>
                                     <th class="text-right py-1 px-2" colspan="6">Sub Total</th>
-                                    <th class="text-right py-1 px-2 sub-total">0</th>
-                                    <input type="hidden" name="sub-total" value="0">
-
+                                    <th class="text-right py-1 px-2 sub-total"><?php echo number_format($subtotal, 2); ?></th>
+                                    <input type="hidden" name="sub-total" value="<?php echo number_format($subtotal, 2); ?>">
                                 </tr>
                                 <tr>
                                     <th class="text-right py-1 px-2" colspan="6">Discount
@@ -249,7 +292,7 @@ if (isset($_POST['update'])) {
                                         <input type="hidden" name="poDiscountTotal" value="0">
 
                                     </th>
-                                    <th class="text-right py-1 px-2 discount">0</th>
+                                    <th class="text-right py-1 px-2 discount"><?php echo number_format($taxTotal, 2); ?></th>
                                 </tr>
                                 <tr>
                                     <th class="text-right py-1 px-2" colspan="6">Tax
@@ -258,17 +301,18 @@ if (isset($_POST['update'])) {
                                         <input type="hidden" name="poTaxTotal" value="0">
 
                                     </th>
-                                    <th class="text-right py-1 px-2 tax">0</th>
+                                    <th class="text-right py-1 px-2 tax"><?php echo number_format($discountTotal, 2); ?></th>
                                 </tr>
                                 <tr>
                                     <th class="text-right py-1 px-2" colspan="6">Total</th>
-                                    <th class="text-right py-1 px-2 grand-total">0</th>
-                                    <input type="hidden" name="grand-total" value="0">
+                                    <th class="text-right py-1 px-2 grand-total"><?php echo number_format($grandtotal, 2); ?></th>
+                                    <input type="hidden" name="grand-total" value="<?php echo number_format($grandtotal, 2); ?>">
                                 </tr>
                             </tfoot>
                         </table>
                         <div class="row" style="margin-top: 1%">
                             <div class="col-md-6">
+                                <button type="button" id="recalculate" class="btn btn-primary" style="background-color: #02964C; border-color: #02964C;">Recalculate</button>
                                 <button type="submit" name="update" class="btn btn-primary">Update</button>
                                 <a href="purchase_orders.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;"> View Purchase Order List</a>
                             </div>
@@ -336,114 +380,96 @@ if (isset($_POST['update'])) {
     </script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            document.getElementById('itemDropdown').addEventListener('change', function() {
-                // This gets the text (product name) of the selected option
-                var productName = this.options[this.selectedIndex].text;
-                // This sets the value of the hidden input field to the product name
-                document.getElementById('productname').value = productName;
+
+            // Function to recalculate the line item totals, subtotal, discount, tax, and grand total
+            function recalculateTotals() {
+                let subtotal = 0;
+                let discountTotal = 0;
+                let taxTotal = 0;
+
+                // Calculate the total for each item and the subtotal
+                document.querySelectorAll("#list tbody tr").forEach(row => {
+                    const quantityInput = row.querySelector("input[name='productquantity[]']");
+                    const priceInput = row.querySelector("input[name='productprice[]']");
+                    const totalCell = row.cells[6];
+
+                    let quantity = parseInt(quantityInput.value) || 0;
+                    let price = parseFloat(priceInput.value) || 0;
+                    let total = quantity * price;
+
+                    totalCell.textContent = total.toFixed(2);
+                    subtotal += total;
+                });
+
+                // Update subtotal display
+                document.querySelector('.sub-total').textContent = number_format(subtotal, 2);
+                document.querySelector("input[name='sub-total']").value = number_format(subtotal, 2);
+
+                // Calculate discount
+                let discountPerc = parseFloat(document.querySelector("input[name='discount_perc']").value) || 0;
+                discountTotal = (subtotal * discountPerc) / 100;
+
+                // Update discount display
+                document.querySelector('.discount').textContent = number_format(discountTotal, 2);
+                document.querySelector("input[name='discount']").value = number_format(discountTotal, 2);
+
+                // Calculate tax
+                let taxPerc = parseFloat(document.querySelector("input[name='tax_perc']").value) || 0;
+                taxTotal = ((subtotal - discountTotal) * taxPerc) / 100;
+
+                // Update tax display
+                document.querySelector('.tax').textContent = number_format(taxTotal, 2);
+                document.querySelector("input[name='tax']").value = number_format(taxTotal, 2);
+
+                // Calculate and update grand total display
+                let grandTotal = subtotal - discountTotal + taxTotal;
+                document.querySelector('.grand-total').textContent = number_format(grandTotal, 2);
+                document.querySelector("input[name='grand-total']").value = number_format(grandTotal, 2);
+            }
+
+            // Attach event listeners to quantity and price inputs for recalculating on change
+            document.querySelectorAll("#list tbody").forEach(table => {
+                table.addEventListener('change', event => {
+                    if (event.target.name === 'productquantity[]' || event.target.name === 'productprice[]') {
+                        recalculateTotals();
+                    }
+                });
             });
+
+            // Attach event listeners to discount and tax inputs for recalculating on change
+            document.querySelector("input[name='discount_perc']").addEventListener('change', recalculateTotals);
+            document.querySelector("input[name='tax_perc']").addEventListener('change', recalculateTotals);
+
+            // Recalculate button triggers the recalculation
+            document.getElementById('recalculate').addEventListener('click', recalculateTotals);
+
+            // Function to format numbers as currency (to mimic PHP's number_format function)
+            function number_format(number, decimals, decPoint, thousandsSep) {
+                decimals = decimals || 0;
+                number = parseFloat(number);
+
+                if (!decPoint || !thousandsSep) {
+                    decPoint = '.';
+                    thousandsSep = ',';
+                }
+
+                let roundedNumber = Math.round(Math.abs(number) * ('1e' + decimals)) + '';
+                let numbersString = decimals ? roundedNumber.slice(0, decimals * -1) : roundedNumber;
+                let decimalsString = decimals ? roundedNumber.slice(decimals * -1) : '';
+                let formattedNumber = "";
+
+                while (numbersString.length > 3) {
+                    formattedNumber = thousandsSep + numbersString.slice(-3) + formattedNumber;
+                    numbersString = numbersString.slice(0, -3);
+                }
+
+                return (number < 0 ? '-' : '') + numbersString + formattedNumber + (decimals ? decPoint + decimalsString : '');
+            }
+
+            // Initial calculation on page load
+            recalculateTotals();
         });
     </script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const addItemButton = document.querySelector("button[name='add']");
-            const tableBody = document.getElementById('list').getElementsByTagName('tbody')[0];
-            const subtotalDisplay = document.querySelector('.sub-total');
-            let subtotal = 0;
-
-            addItemButton.addEventListener('click', function(event) {
-                event.preventDefault();
-
-                const rowNumber = tableBody.rows.length + 1;
-                const quantity = parseInt(document.querySelector("input[name='productquantity']").value) || 0;
-                const unit = document.getElementById('productunit').value;
-                const selectedItem = document.getElementById('itemDropdown').selectedOptions[0];
-                const itemName = selectedItem.text;
-                const attributes = document.getElementById('productattributes').value;
-                const price = parseFloat(document.getElementById('productprice').value) || 0;
-                const total = quantity * price;
-
-                // Fetch additional details from the selected item
-                const productData = selectedItem.dataset;
-                const productName = productData.name;
-                const productUnit = productData.unit;
-                const productAttributes = productData.attributes;
-
-                const row = tableBody.insertRow();
-                row.innerHTML = `
-            <td class="text-center"><button class="btn btn-danger btn-sm" onclick="deleteRow(this)">Delete</button></td>
-            <td class="text-center">${rowNumber}</td>
-            <td class="text-center">${quantity}</td>
-            <td class="text-center">${unit}</td>
-            <td class="text-center">${itemName}</td>
-            <td class="text-center">${attributes}</td>
-            <td class="text-center">${price.toFixed(2)}</td>
-            <td class="text-center">${total.toFixed(2)}</td>
-            <input type="hidden" name="product_id[]" value="${selectedItem.value}">
-            <input type="hidden" name="product_quantity[]" value="${quantity}">
-            <input type="hidden" name="product_price[]" value="${price}">
-            <input type="hidden" name="product_total[]" value="${total}">
-            <input type="hidden" name="product_name[]" value="${productName}">
-            <input type="hidden" name="product_unit[]" value="${productUnit}">
-            <input type="hidden" name="product_attributes[]" value="${productAttributes}">
-        `;
-
-                subtotal += total;
-                updateFooter();
-            });
-
-            window.deleteRow = function(btn) {
-                const row = btn.closest('tr'); // More reliable way to get the row
-                const rowIndex = row.rowIndex;
-                row.remove(); // Removes the row from the table
-
-                recalculateSubtotal(); // Recalculate the subtotal after deletion
-                updateFooter(); // Update the table footer
-                updateRowNumbers(); // Update row numbers after deletion
-            };
-
-
-            function recalculateSubtotal() {
-                subtotal = 0; // Reset subtotal
-                const tableRows = tableBody.rows;
-
-                for (let row of tableRows) {
-                    const price = parseFloat(row.cells[6].innerText);
-                    const quantity = parseInt(row.cells[2].innerText);
-                    subtotal += price * quantity; // Ensure correct calculation
-                }
-            }
-
-            function updateRowNumbers() {
-                const tableRows = tableBody.rows;
-
-                for (let i = 0; i < tableRows.length; i++) {
-                    tableRows[i].cells[1].innerText = i + 1; // Update row number sequentially
-                }
-            }
-
-            function updateFooter() {
-                const discountPerc = parseFloat(document.querySelector("input[name='discount_perc']").value) / 100 || 0;
-                const taxPerc = parseFloat(document.querySelector("input[name='tax_perc']").value) / 100 || 0;
-                const discount = subtotal * discountPerc;
-                const tax = (subtotal - discount) * taxPerc;
-                const grandTotal = subtotal - discount + tax;
-                // Update the footer of the table
-                subtotalDisplay.textContent = subtotal.toFixed(2);
-                document.querySelector("input[name='sub-total']").value = subtotal.toFixed(2);
-                document.querySelector("input[name='discount']").value = discount.toFixed(2); // Update the discount total
-                document.querySelector("input[name='tax']").value = tax.toFixed(2); // Update the tax total
-                document.querySelector('.discount').textContent = discount.toFixed(2);
-                document.querySelector('.tax').textContent = tax.toFixed(2);
-                document.querySelector('.grand-total').textContent = grandTotal.toFixed(2);
-                document.querySelector("input[name='grand-total']").value = grandTotal.toFixed(2);
-            }
-
-
-
-        });
-    </script>
-
 
 
 
