@@ -1,74 +1,61 @@
 <?php
-require_once 'db_config.php';
+require_once 'db_config.php'; // Include the database connection
+
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
     // Extract and sanitize data from the form
     $purchaseOrderId = filter_input(INPUT_GET, 'editid', FILTER_SANITIZE_NUMBER_INT);
     $subtotal = filter_input(INPUT_POST, 'sub-total', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
     $discountPerc = filter_input(INPUT_POST, 'discount_perc', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
     $taxPerc = filter_input(INPUT_POST, 'tax_perc', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-    $discountTotal = filter_input(INPUT_POST, 'discount', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-    $taxTotal = filter_input(INPUT_POST, 'tax', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+    $discountTotal = $subtotal * ($discountPerc / 100);
+    $taxTotal = $subtotal * ($taxPerc / 100);
     $grandtotal = filter_input(INPUT_POST, 'grand-total', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
 
-    // Begin transaction
+    // Start transaction
     $conn->begin_transaction();
 
-    // Update the purchase_orders table
-    $orderUpdateQuery = "UPDATE purchase_orders SET 
-                         poSubtotal = ?, 
-                         poDiscount = ?, 
-                         poDiscountTotal = ?, 
-                         poTax = ?, 
-                         poTaxTotal = ?, 
-                         poGrandtotal = ? 
-                         WHERE id = ?";
+    try {
+        // Update the purchase_orders table
+        $orderStmt = $conn->prepare("UPDATE purchase_orders SET poSubtotal = ?, poDiscount = ?, poDiscountTotal = ?, poTax = ?, poTaxTotal = ?, poGrandtotal = ? WHERE id = ?");
+        $orderStmt->bind_param("ddddddi", $subtotal, $discountPerc, $discountTotal, $taxPerc, $taxTotal, $grandtotal, $purchaseOrderId);
+        $orderStmt->execute();
 
-    $orderStmt = $conn->prepare($orderUpdateQuery);
-    $orderStmt->bind_param("ddddddi", $subtotal, $discountPerc, $discountTotal, $taxPerc, $taxTotal, $grandtotal, $purchaseOrderId);
+        // Update each item in the purchase_order_items table
+        foreach ($_POST['productquantity'] as $itemId => $quantity) {
+            $itemId = filter_var($itemId, FILTER_SANITIZE_NUMBER_INT);
+            $quantity = filter_var($quantity, FILTER_SANITIZE_NUMBER_INT);
+            $unitPrice = filter_var($_POST['productunitprice'][$itemId], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+            $itemDiscount = $unitPrice * ($discountPerc / 100); // Calculate item-level discount
+            $itemTax = $unitPrice * ($taxPerc / 100); // Calculate item-level tax
 
-    if (!$orderStmt->execute()) {
-        echo "Error updating order: " . $conn->error;
-        $conn->rollback();
-        exit();
-    }
-    $orderStmt->close();
+            $itemUpdateQuery = "UPDATE purchase_order_items SET productquantity = ?, productunitprice = ?, poDiscount = ?, poTax = ? WHERE id = ? AND purchase_order_id = ?";
+            $itemStmt = $conn->prepare($itemUpdateQuery);
+            $itemStmt->bind_param("idddii", $quantity, $unitPrice, $itemDiscount, $itemTax, $itemId, $purchaseOrderId);
+            $itemStmt->execute();
 
-    // Update each item in the purchase_order_items table
-    foreach ($_POST['productquantity'] as $itemId => $quantity) {
-        $itemId = filter_var($itemId, FILTER_SANITIZE_NUMBER_INT);
-        $quantity = filter_var($quantity, FILTER_SANITIZE_NUMBER_INT);
-        $price = filter_var($_POST['productprice'][$itemId], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-
-        $productunitprice = $quantity * $price;
-
-        $itemUpdateQuery = "UPDATE purchase_order_items SET 
-                            productquantity = ?, 
-                            productunitprice = ? 
-                            WHERE id = ? AND purchase_order_id = ?";
-
-        $itemStmt = $conn->prepare($itemUpdateQuery);
-        $itemStmt->bind_param("idii", $quantity, $productunitprice, $itemId, $purchaseOrderId);
-
-        if (!$itemStmt->execute()) {
-            echo "Error updating item: " . $conn->error;
-            $conn->rollback();
-            exit();
+            if ($itemStmt->error) {
+                throw new Exception("Error: " . htmlspecialchars($itemStmt->error));
+            }
+            $itemStmt->close();
         }
-        $itemStmt->close();
+
+        // Commit the transaction
+        $conn->commit();
+
+        // Redirect to the purchase order list page
+        header("Location: purchase_orders.php");
+        exit();
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        $conn->rollback();
+        echo $e->getMessage();
+        exit;
+    } finally {
+        $conn->close(); // Ensure the connection is always closed
     }
-
-    // Commit the transaction
-    $conn->commit();
-
-    // Close the database connection
-    $conn->close();
-
-    // Redirect to the purchase order list page
-    header('Location: purchase_orders.php');
-    exit();
 }
-
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -264,15 +251,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
                                     <tr>
                                         <td class="text-center"><?php echo $itemNumber; ?></td>
                                         <td class="text-center">
-                                            <input type="number" class="form-control quantity-input" name="productquantity[]" value="<?php echo $itemRow['productquantity']; ?>">
+                                            <input type="number" class="form-control quantity-input" name="productquantity[<?php echo $itemRow['id']; ?>]" value="<?php echo $itemRow['productquantity']; ?>">
                                         </td>
                                         <td class="text-center"><?php echo htmlspecialchars($itemRow['productunit']); ?></td>
                                         <td class="text-center"><?php echo htmlspecialchars($itemRow['productname']); ?></td>
                                         <td class="text-center"><?php echo htmlspecialchars($itemRow['productattributes']); ?></td>
                                         <td class="text-center">
                                             <input type="text" class="form-control price-input" name="productprice[]" value="<?php echo htmlspecialchars($itemRow['productprice']); ?>" readonly>
+                                            <input type="hidden" name="productunitprice[<?php echo $itemRow['id']; ?>]" value="<?php echo $itemRow['productquantity'] * $itemRow['productprice']; ?>">
                                         </td>
-                                        <!-- Add a class for JavaScript to target -->
                                         <td class="text-center item-total"><?php echo number_format($totalPrice, 2); ?></td>
                                     </tr>
                                 <?php
@@ -312,7 +299,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
                         </table>
                         <div class="row" style="margin-top: 1%">
                             <div class="col-md-6">
-                                <button type="button" id="recalculate" class="btn btn-primary" style="background-color: #02964C; border-color: #02964C;">Recalculate</button>
                                 <button type="submit" name="update" class="btn btn-primary">Update</button>
                                 <a href="purchase_orders.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;"> View Purchase Order List</a>
                             </div>
@@ -389,15 +375,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
 
                 // Calculate the total for each item and the subtotal
                 document.querySelectorAll("#list tbody tr").forEach(row => {
-                    const quantityInput = row.querySelector("input[name='productquantity[]']");
-                    const priceInput = row.querySelector("input[name='productprice[]']");
-                    const totalCell = row.cells[6];
+                    const quantityInput = row.querySelector("input[name^='productquantity']");
+                    const priceInput = row.querySelector("input[name^='productprice']");
+                    const totalCell = row.querySelector(".item-total");
+                    const totalInput = row.querySelector("input[name^='productunitprice']");
 
                     let quantity = parseInt(quantityInput.value) || 0;
                     let price = parseFloat(priceInput.value) || 0;
                     let total = quantity * price;
 
                     totalCell.textContent = total.toFixed(2);
+                    totalInput.value = total; // Update the hidden input for productunitprice
                     subtotal += total;
                 });
 
@@ -430,7 +418,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
             // Attach event listeners to quantity and price inputs for recalculating on change
             document.querySelectorAll("#list tbody").forEach(table => {
                 table.addEventListener('change', event => {
-                    if (event.target.name === 'productquantity[]' || event.target.name === 'productprice[]') {
+                    if (event.target.name.startsWith('productquantity') || event.target.name.startsWith('productprice')) {
                         recalculateTotals();
                     }
                 });
@@ -470,6 +458,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
             recalculateTotals();
         });
     </script>
+
 
 
 
