@@ -3,7 +3,7 @@ require_once('db_config.php');
 
 $productId = $_GET['productId'];
 
-$sql = "SELECT supplier, productunit, available_stocks FROM inventory WHERE product_id = ?";
+$sql = "SELECT supplier, productunit, available_stocks, productprice FROM inventory WHERE product_id = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $productId);
 $stmt->execute();

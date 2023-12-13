@@ -15,89 +15,20 @@ include 'db_config.php';
 
 
 // Generate Purchase Order Code
-$query = "SELECT id FROM purchase_orders ORDER BY id DESC";
+$query = "SELECT id FROM sales_orders ORDER BY id DESC";
 $result = mysqli_query($conn, $query);
-$purchasecode = "PO-00001";
+$salescode = "SALES-00001";
 
 if ($result && mysqli_num_rows($result) > 0) {
     $row = mysqli_fetch_array($result);
     $lastid = $row['id'];
 
     if (!empty($lastid)) {
-        $code = str_replace("PO-", "", $lastid);
-        $purcode = str_pad($code + 1, 5, '0', STR_PAD_LEFT);
-        $purchasecode = "PO-" . $purcode;
+        $code = str_replace("SALES-", "", $lastid);
+        $salcode = str_pad($code + 1, 5, '0', STR_PAD_LEFT);
+        $salescode = "SALES-" . $salcode;
     }
 }
-
-// Check for form submission
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $supplier = mysqli_real_escape_string($conn, $_POST['supplierValue']);
-    $purchasecode = mysqli_real_escape_string($conn, $_POST['purchasecode']);
-    $productIds = $_POST['product_id'];
-    $productQuantities = $_POST['product_quantity'];
-    $productPrices = $_POST['product_price'];
-    $productUnitPrices = $_POST['product_total'];
-    $poDiscountPerc = $_POST['discount_perc']; // Percentage of discount
-    $poTaxPerc = $_POST['tax_perc']; // Percentage of tax
-    $poSubtotal = $_POST['sub-total'];
-    $poGrandtotal = $_POST['grand-total'];
-
-    // Calculating total discount and tax based on percentages
-    $poDiscountTotal = $poSubtotal * ($poDiscountPerc / 100);
-    $poTaxTotal = $poSubtotal * ($poTaxPerc / 100);
-
-    $conn->begin_transaction();
-
-    try {
-        // Insert into purchase_orders
-        $orderStmt = $conn->prepare("INSERT INTO purchase_orders (purchasecode, supplier, poSubtotal, poDiscount, poTax, poDiscountTotal, poTaxTotal, poGrandtotal, dateCreated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-        $orderStmt->bind_param("ssdddddd", $purchasecode, $supplier, $poSubtotal, $poDiscountPerc, $poTaxPerc, $poDiscountTotal, $poTaxTotal, $poGrandtotal);
-        $orderStmt->execute();
-
-        $purchase_order_id = $conn->insert_id;
-
-        // Prepare statement for inserting into purchase_order_items
-        $itemStmt = $conn->prepare("INSERT INTO purchase_order_items (purchase_order_id, product_id, productname, productunit, productattributes, productcategory, productprice, productquantity, productunitprice, poDiscount, poTax) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-        foreach ($productIds as $i => $productId) {
-            // Fetch product details from the database
-            $productQuery = "SELECT productname, productunit, productattributes, productcategory FROM product_list WHERE id = ?";
-            $productStmt = $conn->prepare($productQuery);
-            $productStmt->bind_param("i", $productId);
-            $productStmt->execute();
-            $productResult = $productStmt->get_result();
-            $productDetails = $productResult->fetch_assoc();
-
-            $productName = $productDetails['productname'];
-            $productUnit = $productDetails['productunit'];
-            $productAttributes = $productDetails['productattributes'];
-            $productCategory = $productDetails['productcategory'];
-
-            // Calculate item-level discount and tax based on individual item price and quantity
-            $itemDiscount = $productUnitPrices[$i] * ($poDiscountPerc / 100);
-            $itemTax = $productUnitPrices[$i] * ($poTaxPerc / 100);
-
-            // Insert into purchase_order_items
-            $itemStmt->bind_param("iissssidddd", $purchase_order_id, $productId, $productName, $productUnit, $productAttributes, $productCategory, $productPrices[$i], $productQuantities[$i], $productUnitPrices[$i], $itemDiscount, $itemTax);
-            $itemStmt->execute();
-
-            if ($itemStmt->error) {
-                throw new Exception("Error: " . htmlspecialchars($itemStmt->error));
-            }
-        }
-
-        // Commit transaction
-        $conn->commit();
-        header("Location: purchase_orders.php");
-    } catch (Exception $e) {
-        // Rollback transaction on error
-        $conn->rollback();
-        echo $e->getMessage();
-        exit;
-    }
-}
-
 
 
 // Rest of your code...
@@ -259,47 +190,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <form action="<?php echo ($_SERVER["PHP_SELF"]) ?>" method="POST">
                     <div class="row">
                         <div class="col-md-6">
-                            <label for="productcode">Purchase Order Code</label>
-                            <input type="text" class="form-control" name="purchasecode" value="<?php echo $purchasecode; ?>" readonly required>
+                            <label for="salescode">Sales Order Code</label>
+                            <input type="text" class="form-control" name="salescode" value="<?php echo $salescode; ?>" readonly required>
                         </div>
-                        <div class="col-md-3">
-                            <label for="supplierDropdown">Select Supplier:</label>
-                            <select id="supplierDropdown" class="form-control" name="supplierDropdown">
-                                <option value="">Select Supplier</option>
-                                <?php
-                                $query = "SELECT DISTINCT productsupplier FROM product_list ORDER BY productsupplier";
-                                $result = mysqli_query($conn, $query);
-                                while ($row = mysqli_fetch_assoc($result)) {
-                                    echo "<option value='" . $row['productsupplier'] . "'>" . $row['productsupplier'] . "</option>";
-                                }
-                                ?>
-                            </select>
-                            <input type="hidden" id="supplierValue" name="supplierValue">
+                        <div class="col-md-6">
+                            <label for="customername">Customer Name</label>
+                            <input type="text" id="customername" class="form-control" name="customername" required>
                         </div>
-                        <div class="col-md-3">
-                            <label for="itemDropdown">Select Item:</label>
-                            <select id="itemDropdown" class="form-control" name="itemDropdown" onchange="updatePriceAndUnit()">
-                                <option value="1" data-name="Item Name" data-unit="Unit" data-attributes="Attributes">Item Name</option>
-                                <?php
-                                $query = "SELECT id, productname, productprice, productunit FROM product_list ORDER BY productname";
-                                $result = mysqli_query($conn, $query);
-                                while ($row = mysqli_fetch_assoc($result)) {
-                                    echo "<option value='" . $row['id'] . "' data-price='" . $row['productprice'] . "' data-unit='" . $row['productunit'] . "'>" . $row['productname'] . "</option>";
-                                }
-                                ?>
-                            </select>
-                        </div>
-
-
                     </div>
                     <div class="row" style="padding-bottom: 10px; padding-top: 10px;">
                         <div class="col-md-3">
-                            <label for="productunit">Product Unit</label>
-                            <input type="text" id="productunit" class="form-control" name="productunit" readonly required>
+                            <label for="productDropdown">Select Product Name:</label>
+                            <select id="productDropdown" class="form-control" name="productDropdown">
+                                <option value="">Select Product</option>
+                                <?php
+                                require_once('db_config.php');
+
+                                if ($conn->connect_error) {
+                                    die("Connection failed: " . $conn->connect_error);
+                                }
+
+                                // Adjust the query to join the inventory table with the product_list table
+                                $sql = "SELECT p.id, p.productname FROM product_list p JOIN inventory i ON p.id = i.product_id";
+                                $result = $conn->query($sql);
+
+                                if ($result) {
+                                    if ($result->num_rows > 0) {
+                                        while ($row = $result->fetch_assoc()) {
+                                            echo "<option value='" . $row["id"] . "'>" . htmlspecialchars($row["productname"]) . "</option>";
+                                        }
+                                    } else {
+                                        echo "<option>No products found</option>";
+                                    }
+                                } else {
+                                    echo "<option>Error in fetching products</option>";
+                                }
+                                $conn->close();
+                                ?>
+                            </select>
                         </div>
                         <div class="col-md-3">
-                            <label for="productattributes">Product Attributes</label>
-                            <input type="text" id="productattributes" class="form-control" name="productattributes" readonly required>
+                            <label for="productunit">Units</label>
+                            <input type="text" class="form-control" id="productunit" name="productunit" required readonly>
                         </div>
                         <div class="col-md-2">
                             <label for="productquantity">Product Quantity</label>
@@ -312,6 +244,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <input type="hidden" id="productprice" class="form-control" name="productprice" readonly required>
                         </div>
                     </div>
+
                     <table class="table table-striped table-bordered" id="list">
                         <colgroup>
                             <col width="5%">
@@ -321,7 +254,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <col width="20%">
                             <col width="20%">
                             <col width="20%">
-                            <col width="15%">
                         </colgroup>
                         <thead>
                             <tr class="text-light bg-navy">
@@ -330,7 +262,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 <th class="text-center py-1 px-2" scope="col">Qty</th>
                                 <th class="text-center py-1 px-2" scope="col">Unit</th>
                                 <th class="text-center py-1 px-2" scope="col">Item</th>
-                                <th class="text-center py-1 px-2" scope="col">Attributes</th>
                                 <th class="text-center py-1 px-2" scope="col">Price</th>
                                 <th class="text-center py-1 px-2" scope="col">Total</th>
                             </tr>
@@ -340,13 +271,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         </tbody>
                         <tfoot>
                             <tr>
-                                <th class="text-right py-1 px-2" colspan="7">Sub Total</th>
+                                <th class="text-right py-1 px-2" colspan="6">Sub Total</th>
                                 <th class="text-right py-1 px-2 sub-total">0</th>
                                 <input type="hidden" name="sub-total" value="0">
 
                             </tr>
                             <tr>
-                                <th class="text-right py-1 px-2" colspan="7">Discount <input style="width:40px !important" name="discount_perc" type="number" min="0" max="100" value="0">%
+                                <th class="text-right py-1 px-2" colspan="6">Discount <input style="width:40px !important" name="discount_perc" type="number" min="0" max="100" value="0">%
                                     <input type="hidden" name="discount" value="0">
                                     <input type="hidden" name="poDiscountTotal" value="0">
 
@@ -354,7 +285,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 <th class="text-right py-1 px-2 discount">0</th>
                             </tr>
                             <tr>
-                                <th class="text-right py-1 px-2" colspan="7">Tax <input style="width:40px !important" name="tax_perc" type="number" min="0" max="100" value="0">%
+                                <th class="text-right py-1 px-2" colspan="6">Tax <input style="width:40px !important" name="tax_perc" type="number" min="0" max="100" value="0">%
                                     <input type="hidden" name="tax" value="0">
                                     <input type="hidden" name="poTaxTotal" value="0">
 
@@ -362,7 +293,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 <th class="text-right py-1 px-2 tax">0</th>
                             </tr>
                             <tr>
-                                <th class="text-right py-1 px-2" colspan="7">Total</th>
+                                <th class="text-right py-1 px-2" colspan="6">Total</th>
                                 <th class="text-right py-1 px-2 grand-total">0</th>
                                 <input type="hidden" name="grand-total" value="0">
                             </tr>
@@ -392,50 +323,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.3/apexcharts.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            document.getElementById('supplierDropdown').addEventListener('change', function() {
-                var supplier = this.value;
-                if (supplier) {
-                    $.ajax({
-                        type: 'POST',
-                        url: 'purchase_order_items.php', // PHP script to get items based on supplier
-                        data: 'supplier=' + supplier,
-                        success: function(html) {
-                            $('#itemDropdown').html(html);
+        document.getElementById("productDropdown").addEventListener("change", function() {
+            var productId = this.value;
+
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "inventory_fetch_products.php?productId=" + productId, true);
+            xhr.onreadystatechange = function() {
+                if (this.readyState == 4) {
+                    if (this.status == 200) {
+                        try {
+                            var response = JSON.parse(this.responseText);
+                            document.getElementById("productunit").value = response.productunit;
+                            document.getElementById("productprice").value = response.productprice;
+                            document.getElementById("in_stocks").value = response.available_stocks;
+                        } catch (e) {
+                            console.error("Error parsing response: ", e);
                         }
-                    });
-                } else {
-                    $('#itemDropdown').html('<option value="">Select Item</option>');
+                    } else {
+                        console.error("AJAX request failed: ", this.status);
+                    }
                 }
-            });
-
-            document.getElementById('itemDropdown').addEventListener('change', function() {
-                var itemId = this.value;
-                if (itemId) {
-                    $.ajax({
-                        type: 'POST',
-                        url: 'purchase_order_details.php', // PHP script to get item details
-                        data: 'item_id=' + itemId,
-                        success: function(data) {
-                            var details = JSON.parse(data);
-                            document.getElementById('productunit').value = details.productunit;
-                            document.getElementById('productattributes').value = details.productattributes;
-                            document.getElementById('productprice').value = details.productprice;
-
-                        }
-                    });
-                } else {
-                    document.getElementById('productunit').value = '';
-                    document.getElementById('productattributes').value = '';
-                    document.getElementById('productprice').value = '';
-
-                }
-            });
+            };
+            xhr.send();
         });
     </script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            const addItemButton = document.querySelector("button[name='add']");
+            const addItemButton = document.getElementById("add");
             const tableBody = document.getElementById('list').getElementsByTagName('tbody')[0];
             const subtotalDisplay = document.querySelector('.sub-total');
             let subtotal = 0;
@@ -446,17 +360,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 const rowNumber = tableBody.rows.length + 1;
                 const quantity = parseInt(document.querySelector("input[name='productquantity']").value) || 0;
                 const unit = document.getElementById('productunit').value;
-                const selectedItem = document.getElementById('itemDropdown').selectedOptions[0];
-                const itemName = selectedItem.text;
-                const attributes = document.getElementById('productattributes').value;
+                const productDropdown = document.getElementById('productDropdown');
+                const selectedOption = productDropdown.options[productDropdown.selectedIndex];
+                const itemName = selectedOption.textContent;
                 const price = parseFloat(document.getElementById('productprice').value) || 0;
                 const total = quantity * price;
-
-                // Fetch additional details from the selected item
-                const productData = selectedItem.dataset;
-                const productName = productData.name;
-                const productUnit = productData.unit;
-                const productAttributes = productData.attributes;
 
                 const row = tableBody.insertRow();
                 row.innerHTML = `
@@ -465,16 +373,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <td class="text-center">${quantity}</td>
             <td class="text-center">${unit}</td>
             <td class="text-center">${itemName}</td>
-            <td class="text-center">${attributes}</td>
             <td class="text-center">${price.toFixed(2)}</td>
             <td class="text-center">${total.toFixed(2)}</td>
-            <input type="hidden" name="product_id[]" value="${selectedItem.value}">
+            <input type="hidden" name="product_id[]" value="${selectedOption.value}">
             <input type="hidden" name="product_quantity[]" value="${quantity}">
             <input type="hidden" name="product_price[]" value="${price}">
             <input type="hidden" name="product_total[]" value="${total}">
-            <input type="hidden" name="product_name[]" value="${productName}">
-            <input type="hidden" name="product_unit[]" value="${productUnit}">
-            <input type="hidden" name="product_attributes[]" value="${productAttributes}">
+            <input type="hidden" name="product_name[]" value="${itemName}">
+            <input type="hidden" name="product_unit[]" value="${unit}">
         `;
 
                 subtotal += total;
@@ -490,7 +396,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 updateFooter(); // Update the table footer
                 updateRowNumbers(); // Update row numbers after deletion
             };
-
 
             function recalculateSubtotal() {
                 subtotal = 0; // Reset subtotal
@@ -532,6 +437,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         });
     </script>
+
 
 
 

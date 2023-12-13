@@ -25,6 +25,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['received'])) {
                 $productName = $_POST['productname'][$itemId];
                 $productUnit = $_POST['productunit'][$itemId];
                 $productPrice = $_POST['productprice'][$itemId];
+                $productAttributes = $_POST['productattributes'][$itemId];
+                $productCategory = $_POST['productcategory'][$itemId];
 
                 // Check if product exists in inventory
                 $inventoryCheck = $conn->prepare("SELECT * FROM inventory WHERE product_id = ?");
@@ -302,6 +304,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['received'])) {
                                         </td>
                                         <td class="text-center">
                                             <?php echo htmlspecialchars($itemRow['productattributes']); ?>
+                                            <input type="hidden" name="productattributes[<?php echo $itemRow['id']; ?>]" value="<?php echo htmlspecialchars($itemRow['productattributes']); ?>">
+
                                         </td>
                                         <td class="text-center">
                                             <input type="text" class="form-control price-input" name="productprice[<?php echo $itemRow['id']; ?>]" value="<?php echo htmlspecialchars($itemRow['productprice']); ?>" readonly>

@@ -163,7 +163,7 @@ header("Pragma: no-cache");
                 <div class="row">
                     <div class="col-md-12">
                         <h3>Records</h3>
-                        <a href="#" class="btn btn-warning pull-right" style="margin-bottom: 10px; position: relative; background-color: #02964C; border-color: #02964C;"><span class="glyphicon glyphicon-plus"></span> Create New </a>
+                        <a href="sales_order_add.php" class="btn btn-warning pull-right" style="margin-bottom: 10px; position: relative; background-color: #02964C; border-color: #02964C;"><span class="glyphicon glyphicon-plus"></span> Create New </a>
                     </div>
                 </div>
                 <div class="row">

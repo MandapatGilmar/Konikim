@@ -175,30 +175,42 @@ header("Pragma: no-cache");
                                         <th>Return Code</th>
                                         <th>Supplier</th>
                                         <th>Items</th>
-                                        <th>Date Creation</th>
+                                        <th>Total</th>
+                                        <th>Date Created</th>
                                         <th>Action</th>
 
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <!-- php code -->
-                                    <tr>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
-                                        <td></td>
+                                    <?php
+                                    require_once 'db_config.php';
+                                    $sql = mysqli_query($conn, "SELECT ro.*, COUNT(roi.id) AS itemCount FROM return_orders ro LEFT JOIN return_order_items roi ON ro.id = roi.return_order_id GROUP BY ro.id");
+                                    $count = 1;
+                                    $row = mysqli_num_rows($sql);
+                                    if ($row > 0) {
+                                        while ($row = mysqli_fetch_array($sql)) {
 
-
-                                        <td>
-                                            <div style="display: flex; align-items: center;">
-                                                <a href="#" class="btn btn-info btn-sm" style="margin-right: 8px; position: relative;"><span class="glyphicon glyphicon-search"></span> View </a>
-                                                <a href="#" class="btn btn-warning btn-sm" style="margin-right: 8px; position: relative;"><span class="glyphicon glyphicon-pencil"></span> Edit </a>
-                                                <a href="#" onClick="return confirm('Do you really want to remove this record?')" class="btn btn-danger btn-sm" style="background-color: #cc3c43; border-color: #cc3c43;"><span class="glyphicon glyphicon-trash"></span> Delete </a>
-                                            </div>
-                                        </td>
-                                    </tr>
-
+                                    ?>
+                                            <tr>
+                                                <td><?php echo $count ?></td>
+                                                <td><?php echo $row['returncode']; ?></td>
+                                                <td><?php echo $row['supplier']; ?></td>
+                                                <td><?php echo $row['itemCount']; ?></td>
+                                                <td><?php echo $row['subtotal']; ?></td>
+                                                <td><?php echo $row['dateCreated']; ?></td>
+                                                <td>
+                                                    <div style="display: flex; align-items: center;">
+                                                        <a href="#" class="btn btn-info btn-sm" style="margin-right: 8px; position: relative;"><span class="glyphicon glyphicon-search"></span> View </a>
+                                                        <a href="#" class="btn btn-warning btn-sm" style="margin-right: 8px; position: relative;"><span class="glyphicon glyphicon-pencil"></span> Edit </a>
+                                                        <a href="#" onClick="return confirm('Do you really want to remove this record?')" class="btn btn-danger btn-sm" style="background-color: #cc3c43; border-color: #cc3c43;"><span class="glyphicon glyphicon-trash"></span> Delete </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                    <?php
+                                            $count = $count + 1;
+                                        }
+                                    }
+                                    ?>
                                 </tbody>
                             </table>
                         </div>

@@ -278,6 +278,7 @@ if (isset($_GET['delid'])) {
                                                     <!-- End Example content -->
                                                 </div>
                                                 <div class="modal-footer">
+                                                    <button type="button" class="btn btn-primary btn-sm" onclick="printOrderDetails()">Print</button>
                                                     <button type="button" class="btn btn-danger btn-sm" data-dismiss="modal">Close</button>
                                                 </div>
                                             </div>
@@ -321,6 +322,22 @@ if (isset($_GET['delid'])) {
             });
         });
     </script>
+    <script>
+        function printOrderDetails() {
+            var content = document.getElementById("orderDetailsContent").innerHTML;
+            var printWindow = window.open('', '', 'height=600,width=800');
+            printWindow.document.write('<html><head><title>Print</title>');
+            // Optionally include a link to a CSS file for styling
+            printWindow.document.write('<link rel="stylesheet" href="print.css" type="text/css" />');
+            printWindow.document.write('</head><body>');
+            printWindow.document.write(content);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.print();
+        }
+    </script>
+
+
 
     <!-- Custom JS -->
     <script src="js\scipt.js"></script>
