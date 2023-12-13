@@ -1,4 +1,16 @@
 <?php
+session_start();
+
+if (!isset($_SESSION['user_type'])) {
+    header('Location: login.php'); // Redirect to login page
+    exit();
+}
+
+// Prevent caching
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+
 include 'db_config.php';
 
 // Query to count the number of products
@@ -7,6 +19,13 @@ $productCount = 0;
 
 if ($row = mysqli_fetch_assoc($query)) {
     $productCount = $row['productCount'];
+}
+
+$purchasequery = mysqli_query($conn, "SELECT COUNT(*) as purchaseCount FROM purchase_orders");
+$purchaseCount = 0;
+
+if ($row = mysqli_fetch_assoc($purchasequery)) {
+    $purchaseCount = $row['purchaseCount'];
 }
 ?>
 <!DOCTYPE html>
@@ -47,10 +66,33 @@ if ($row = mysqli_fetch_assoc($query)) {
                 <span class="material-icons-outlined">search</span>
             </div>
             <div class="header-right">
-                <span class="material-icons-outlined">notifications</span>
-                <span class="material-icons-outlined">email</span>
-                <span class="material-icons-outlined">account_circle</span>
+                <span class="material-icons-outlined" id="userIcon">account_circle</span>
+                <div id="userOptions" class="user-options" style="display: none;">
+                    <form>
+                        <button type="button" id="logoutButton">Logout</button>
+                    </form>
+                </div>
             </div>
+            <script>
+                document.getElementById('userIcon').addEventListener('click', function() {
+                    var userOptions = document.getElementById('userOptions');
+                    if (userOptions.style.display === 'none') {
+                        userOptions.style.display = 'block';
+                    } else {
+                        userOptions.style.display = 'none';
+                    }
+                });
+
+                document.getElementById('logoutButton').addEventListener('click', function() {
+                    fetch('logout.php')
+                        .then(response => {
+                            // Clear browser history
+                            history.pushState(null, null, 'login.php');
+                            location.reload();
+                        })
+                        .catch(error => console.error('Error:', error));
+                });
+            </script>
         </header>
         <!-- End Header -->
 
@@ -107,22 +149,24 @@ if ($row = mysqli_fetch_assoc($query)) {
                         <span class="material-icons-outlined">poll</span> Reports
                     </a>
                 </li>
-                <hr class="sidebar-divider hr-sidebar-divider">
-                <li class="sidebar-list-item">
-                    <a href="user.php" target="_self">
-                        <span class="material-icons-outlined">manage_accounts</span> Users
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="sms.php" target="_self">
-                        <span class="material-icons-outlined">message</span> SMS
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="cms.php" target="_self">
-                        <span class="material-icons-outlined">settings</span> Settings
-                    </a>
-                </li>
+                <?php if ($_SESSION['user_type'] == 'Administrator') : ?>
+                    <hr class="sidebar-divider hr-sidebar-divider">
+                    <li class="sidebar-list-item">
+                        <a href="user.php" target="_self">
+                            <span class="material-icons-outlined">manage_accounts</span> Users
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="sms.php" target="_self">
+                            <span class="material-icons-outlined">message</span> SMS
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="cms.php" target="_self">
+                            <span class="material-icons-outlined">settings</span> Settings
+                        </a>
+                    </li>
+                <?php endif; ?>
             </ul>
 
         </aside>
@@ -149,7 +193,7 @@ if ($row = mysqli_fetch_assoc($query)) {
                         <p class="text-primary">PURCHASE ORDERS</p>
                         <span class="material-icons-outlined text-orange">add_shopping_cart</span>
                     </div>
-                    <span class="text-primary font-weight-bold">83</span>
+                    <span class="text-primary font-weight-bold"><?php echo $purchaseCount; ?></span>
                 </div>
 
                 <div class="card">
@@ -195,6 +239,13 @@ if ($row = mysqli_fetch_assoc($query)) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.3/apexcharts.min.js"></script>
     <!-- Custom JS -->
     <script src="js\scipt.js"></script>
+    <script>
+        // After logout, clear the browser history
+        if (window.history.replaceState) {
+            window.history.replaceState(null, null, window.location.href);
+        }
+    </script>
+
 </body>
 
 </html>

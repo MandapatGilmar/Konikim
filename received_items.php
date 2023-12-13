@@ -10,50 +10,56 @@ if (!isset($_SESSION['user_type'])) {
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
-require_once 'db_config.php'; // Include the database connection
+include 'db_config.php'; // Include your database configuration file
 
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
-    // Extract and sanitize data from the form
-    $purchaseOrderId = filter_input(INPUT_GET, 'editid', FILTER_SANITIZE_NUMBER_INT);
-    $subtotal = filter_input(INPUT_POST, 'sub-total', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-    $discountPerc = filter_input(INPUT_POST, 'discount_perc', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-    $taxPerc = filter_input(INPUT_POST, 'tax_perc', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-    $discountTotal = $subtotal * ($discountPerc / 100);
-    $taxTotal = $subtotal * ($taxPerc / 100);
-    $grandtotal = filter_input(INPUT_POST, 'grand-total', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['received'])) {
+    $purchaseId = $_GET['receivedid']; // Get the purchase order ID from the URL parameter
 
-    // Start transaction
     $conn->begin_transaction();
 
     try {
-        // Update the purchase_orders table
-        $orderStmt = $conn->prepare("UPDATE purchase_orders SET poSubtotal = ?, poDiscount = ?, poDiscountTotal = ?, poTax = ?, poTaxTotal = ?, poGrandtotal = ? WHERE id = ?");
-        $orderStmt->bind_param("ddddddi", $subtotal, $discountPerc, $discountTotal, $taxPerc, $taxTotal, $grandtotal, $purchaseOrderId);
-        $orderStmt->execute();
-
-        // Update each item in the purchase_order_items table
         foreach ($_POST['productquantity'] as $itemId => $quantity) {
-            $itemId = filter_var($itemId, FILTER_SANITIZE_NUMBER_INT);
-            $quantity = filter_var($quantity, FILTER_SANITIZE_NUMBER_INT);
-            $unitPrice = filter_var($_POST['productunitprice'][$itemId], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-            $itemDiscount = $unitPrice * ($discountPerc / 100); // Calculate item-level discount
-            $itemTax = $unitPrice * ($taxPerc / 100); // Calculate item-level tax
+            if (isset($_POST['productId'][$itemId])) {
+                $productId = $_POST['productId'][$itemId];
+                $supplier = $_POST['supplier'];
+                $productName = $_POST['productname'][$itemId];
+                $productUnit = $_POST['productunit'][$itemId];
+                $productPrice = $_POST['productprice'][$itemId];
 
-            $itemUpdateQuery = "UPDATE purchase_order_items SET productquantity = ?, productunitprice = ?, poDiscount = ?, poTax = ? WHERE id = ? AND purchase_order_id = ?";
-            $itemStmt = $conn->prepare($itemUpdateQuery);
-            $itemStmt->bind_param("idddii", $quantity, $unitPrice, $itemDiscount, $itemTax, $itemId, $purchaseOrderId);
-            $itemStmt->execute();
+                // Check if product exists in inventory
+                $inventoryCheck = $conn->prepare("SELECT * FROM inventory WHERE product_id = ?");
+                $inventoryCheck->bind_param("i", $productId);
+                $inventoryCheck->execute();
+                $result = $inventoryCheck->get_result();
 
-            if ($itemStmt->error) {
-                throw new Exception("Error: " . htmlspecialchars($itemStmt->error));
+                if ($result->num_rows > 0) {
+                    // Product exists, update inventory
+                    $inventoryData = $result->fetch_assoc();
+                    $newQuantity = $inventoryData['available_stocks'] + $quantity;
+                    $newTotal = $newQuantity * $productPrice;
+
+                    $updateInventory = $conn->prepare("UPDATE inventory SET productname = ?, productunit = ?, available_stocks = ?, total = ?, last_updated = NOW() WHERE product_id = ?");
+                    $updateInventory->bind_param("ssdis", $productName, $productUnit, $newQuantity, $newTotal, $productId);
+                    $updateInventory->execute();
+                } else {
+                    // Product does not exist, insert new record
+                    $total = $quantity * $productPrice;
+
+                    $insertInventory = $conn->prepare("INSERT INTO inventory (product_id, supplier, productname, productunit, productprice, available_stocks, total, last_updated) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())");
+                    $insertInventory->bind_param("isssdis", $productId, $supplier, $productName, $productUnit, $productPrice, $quantity, $total);
+                    $insertInventory->execute();
+                }
+            } else {
+                throw new Exception("Missing data for item ID: " . $itemId);
             }
-            $itemStmt->close();
         }
 
-        // Commit the transaction
-        $conn->commit();
+        // Update the status of the purchase order
+        $updateStatus = $conn->prepare("UPDATE purchase_orders SET status = 1 WHERE id = ?");
+        $updateStatus->bind_param("i", $purchaseId);
+        $updateStatus->execute();
 
-        // Redirect to the purchase order list page
+        $conn->commit();
         header("Location: purchase_orders.php");
         exit();
     } catch (Exception $e) {
@@ -66,6 +72,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -221,11 +228,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
                 </div>
                 <form method="POST">
                     <?php
-                    // Fetch product details
-                    $eid = $_GET['editid'];
+                    $rid = $_GET['receivedid']; // Get the purchase order ID from the URL parameter
                     $poQuery = "SELECT * FROM purchase_orders WHERE id = ?";
                     $stmt = $conn->prepare($poQuery);
-                    $stmt->bind_param("i", $eid);
+                    $stmt->bind_param("i", $rid);
                     $stmt->execute();
                     $poResult = $stmt->get_result();
 
@@ -272,7 +278,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
                                 // Fetch items associated with the purchase order
                                 $itemsQuery = "SELECT * FROM purchase_order_items WHERE purchase_order_id = ?";
                                 $itemsStmt = $conn->prepare($itemsQuery);
-                                $itemsStmt->bind_param("i", $eid);
+                                $itemsStmt->bind_param("i", $rid);
                                 $itemsStmt->execute();
                                 $itemsResult = $itemsStmt->get_result();
                                 $itemNumber = 0;
@@ -281,25 +287,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
                                     $itemNumber++;
                                     $totalPrice = $itemRow['productquantity'] * $itemRow['productprice']; // Calculate total price for each item
                                 ?>
-
                                     <tr>
                                         <td class="text-center"><?php echo $itemNumber; ?></td>
                                         <td class="text-center">
-                                            <input type="number" class="form-control quantity-input" name="productquantity[<?php echo $itemRow['id']; ?>]" value="<?php echo $itemRow['productquantity']; ?>">
+                                            <input type="number" class="form-control quantity-input" name="productquantity[<?php echo $itemRow['id']; ?>]" value="<?php echo $itemRow['productquantity']; ?>" readonly>
                                         </td>
-                                        <td class="text-center"><?php echo htmlspecialchars($itemRow['productunit']); ?></td>
-                                        <td class="text-center"><?php echo htmlspecialchars($itemRow['productname']); ?></td>
-                                        <td class="text-center"><?php echo htmlspecialchars($itemRow['productattributes']); ?></td>
                                         <td class="text-center">
-                                            <input type="text" class="form-control price-input" name="productprice[]" value="<?php echo htmlspecialchars($itemRow['productprice']); ?>" readonly>
-                                            <input type="hidden" name="productunitprice[<?php echo $itemRow['id']; ?>]" value="<?php echo $itemRow['productquantity'] * $itemRow['productprice']; ?>">
+                                            <?php echo htmlspecialchars($itemRow['productunit']); ?>
+                                            <input type="hidden" name="productunit[<?php echo $itemRow['id']; ?>]" value="<?php echo htmlspecialchars($itemRow['productunit']); ?>">
+                                        </td>
+                                        <td class="text-center">
+                                            <?php echo htmlspecialchars($itemRow['productname']); ?>
+                                            <input type="hidden" name="productname[<?php echo $itemRow['id']; ?>]" value="<?php echo htmlspecialchars($itemRow['productname']); ?>">
+                                        </td>
+                                        <td class="text-center">
+                                            <?php echo htmlspecialchars($itemRow['productattributes']); ?>
+                                        </td>
+                                        <td class="text-center">
+                                            <input type="text" class="form-control price-input" name="productprice[<?php echo $itemRow['id']; ?>]" value="<?php echo htmlspecialchars($itemRow['productprice']); ?>" readonly>
+                                            <input type="hidden" name="productId[<?php echo $itemRow['id']; ?>]" value="<?php echo $itemRow['product_id']; ?>">
                                         </td>
                                         <td class="text-center item-total"><?php echo number_format($totalPrice, 2); ?></td>
                                     </tr>
                                 <?php
                                 }
+                                $itemsStmt->close();
                                 ?>
                             </tbody>
+
                             <tfoot>
                                 <tr>
                                     <th class="text-right py-1 px-2" colspan="6">Sub Total</th>
@@ -308,7 +323,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
                                 </tr>
                                 <tr>
                                     <th class="text-right py-1 px-2" colspan="6">Discount
-                                        <input style="width:40px !important" name="discount_perc" type="number" min="0" max="100" value="<?php echo $discountPerc; ?>">%
+                                        <input style="width:40px !important" name="discount_perc" type="number" min="0" max="100" value="<?php echo $discountPerc; ?>" readonly>%
                                         <input type="hidden" name="discount" value="0">
                                         <input type="hidden" name="poDiscountTotal" value="0">
 
@@ -317,7 +332,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
                                 </tr>
                                 <tr>
                                     <th class="text-right py-1 px-2" colspan="6">Tax
-                                        <input style="width:40px !important" name="tax_perc" type="number" min="0" max="100" value="<?php echo $taxPerc; ?>">%
+                                        <input style="width:40px !important" name="tax_perc" type="number" min="0" max="100" value="<?php echo $taxPerc; ?>" readonly>%
                                         <input type="hidden" name="tax" value="0">
                                         <input type="hidden" name="poTaxTotal" value="0">
 
@@ -333,7 +348,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
                         </table>
                         <div class="row" style="margin-top: 1%">
                             <div class="col-md-6">
-                                <button type="submit" name="update" class="btn btn-primary">Update</button>
+                                <button type="submit" name="received" class="btn btn-primary">Received</button>
                                 <a href="purchase_orders.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;"> View Purchase Order List</a>
                             </div>
                         </div>

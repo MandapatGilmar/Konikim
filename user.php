@@ -1,8 +1,17 @@
 <?php
+session_start();
+
+// Check if the user is logged in and if the user is not an administrator
+if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] != 'Administrator') {
+    // Redirect to a different page or show an error
+    header("Location: unauthorized.php"); // Redirect to an unauthorized access page
+    exit();
+}
 // Connect to the database
 // Include your database configuration here
 include 'db_config.php';
 
+// Check if the user is logged in and if the user is not an administrator
 if (isset($_GET['delid'])) {
 
     $id = intval($_GET['delid']);
@@ -49,10 +58,32 @@ if (isset($_GET['delid'])) {
                 <span class="material-icons-outlined">search</span>
             </div>
             <div class="header-right">
-                <span class="material-icons-outlined">notifications</span>
-                <span class="material-icons-outlined">email</span>
-                <span class="material-icons-outlined">account_circle</span>
+                <span class="material-icons-outlined" id="userIcon">account_circle</span>
+                <div id="userOptions" class="user-options" style="display: none;">
+                    <form>
+                        <button type="button" id="logoutButton">Logout</button>
+                    </form>
+                </div>
             </div>
+            <script>
+                document.getElementById('userIcon').addEventListener('click', function() {
+                    var userOptions = document.getElementById('userOptions');
+                    if (userOptions.style.display === 'none') {
+                        userOptions.style.display = 'block';
+                    } else {
+                        userOptions.style.display = 'none';
+                    }
+                });
+
+                document.getElementById('logoutButton').addEventListener('click', function() {
+                    fetch('logout.php') // Make sure the path to logout.php is correct
+                        .then(response => {
+                            // Redirect to login page or show a logged out message
+                            window.location.href = 'login.php'; // Replace 'login.php' with your login page
+                        })
+                        .catch(error => console.error('Error:', error));
+                });
+            </script>
         </header>
         <!-- End Header -->
 
@@ -109,22 +140,24 @@ if (isset($_GET['delid'])) {
                         <span class="material-icons-outlined">poll</span> Reports
                     </a>
                 </li>
-                <hr class="sidebar-divider hr-sidebar-divider">
-                <li class="sidebar-list-item">
-                    <a href="user.php" target="_self">
-                        <span class="material-icons-outlined">manage_accounts</span> Users
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="sms.php" target="_self">
-                        <span class="material-icons-outlined">message</span> SMS
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="cms.php" target="_self">
-                        <span class="material-icons-outlined">settings</span> Settings
-                    </a>
-                </li>
+                <?php if ($_SESSION['user_type'] == 'Administrator') : ?>
+                    <hr class="sidebar-divider hr-sidebar-divider">
+                    <li class="sidebar-list-item">
+                        <a href="user.php" target="_self">
+                            <span class="material-icons-outlined">manage_accounts</span> Users
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="sms.php" target="_self">
+                            <span class="material-icons-outlined">message</span> SMS
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="cms.php" target="_self">
+                            <span class="material-icons-outlined">settings</span> Settings
+                        </a>
+                    </li>
+                <?php endif; ?>
             </ul>
 
         </aside>
@@ -159,42 +192,37 @@ if (isset($_GET['delid'])) {
                                 <tbody>
                                     <?php
                                     require_once 'db_config.php';
-                                    $sql = mysqli_query($conn, "SELECT * FROM users");
+                                    $sql = mysqli_query($conn, "SELECT id, firstname, lastname, username, user_type FROM users");
                                     $count = 1;
-                                    $row = mysqli_num_rows($sql);
-                                    if ($row > 0) {
-                                        while ($row = mysqli_fetch_array($sql)) {
+                                    while ($row = mysqli_fetch_array($sql)) {
                                     ?>
-                                            <tr>
-                                                <td><?php echo $count ?></td>
-                                                <td><?php echo $row['employee_name']; ?></td>
-                                                <td><?php echo $row['username']; ?></td>
-                                                <td><?php echo $row['user_level']; ?></td>
-                                                <td>
-                                                    <div style="display: flex; align-items: center;">
-                                                        <a href="user_edit.php?editid=<?php echo htmlentities($row['id']); ?>" style="margin-right: 8px; position: relative;" class="btn btn-warning btn-sm">
-                                                            <span class="glyphicon glyphicon-pencil"></span> Edit
-                                                        </a>
-                                                        <a href="user.php?delid=<?php echo htmlentities($row['id']); ?>" onClick="return confirm('Do you really want to remove this record?')" class="btn btn-danger btn-sm" style="background-color: #cc3c43; border-color: #cc3c43;">
-                                                            <span class="glyphicon glyphicon-trash"></span> Delete
-                                                        </a>
-                                                    </div>
-                                                </td>
-
-                                            </tr>
-
+                                        <tr>
+                                            <td><?php echo $count ?></td>
+                                            <td><?php echo $row['firstname'] . " " . $row['lastname']; ?></td>
+                                            <td><?php echo $row['username']; ?></td>
+                                            <td><?php echo $row['user_type']; ?></td>
+                                            <td>
+                                                <div style="display: flex; align-items: center;">
+                                                    <a href="user_edit.php?editid=<?php echo htmlentities($row['id']); ?>" style="margin-right: 8px; position: relative;" class="btn btn-warning btn-sm">
+                                                        <span class="glyphicon glyphicon-pencil"></span> Edit
+                                                    </a>
+                                                    <a href="user.php?delid=<?php echo htmlentities($row['id']); ?>" onClick="return confirm('Do you really want to remove this record?')" class="btn btn-danger btn-sm" style="background-color: #cc3c43; border-color: #cc3c43;">
+                                                        <span class="glyphicon glyphicon-trash"></span> Delete
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     <?php
-                                            $count = $count + 1;
-                                        }
+                                        $count++;
                                     }
                                     ?>
                                 </tbody>
+
                             </table>
                         </div>
                     </div>
                 </div>
-
-
+            </div>
         </main>
         <!-- End Main -->
 

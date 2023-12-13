@@ -7,46 +7,65 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] != 'Administrator')
     header("Location: unauthorized.php"); // Redirect to an unauthorized access page
     exit();
 }
-// Connect to the database
-require_once 'db_config.php'; // Assuming db_config.php contains the database connection details
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['firstname'])) {
+    $userFirstName = $_SESSION['firstname'];
+} else {
+    $userFirstName = 'Unknown'; // Or handle the case where the user is not logged in
+}
 
-// Check if the form is submitted
+require_once 'db_config.php'; // Database configuration file
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Collect and sanitize input data
-    $firstname = mysqli_real_escape_string($conn, $_POST['firstname']);
-    $lastname = mysqli_real_escape_string($conn, $_POST['lastname']);
-    $username = mysqli_real_escape_string($conn, $_POST['username']);
-    // Hash the password securely
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-    $userType = mysqli_real_escape_string($conn, $_POST['user_level']);
+    // Retrieve form data
+    $productId = $_POST['productDropdown'];
+    $removeStocks = $_POST['remove_stocks'];
+    $reason = $_POST['reason'];
+    $adjustedBy = $_SESSION['firstname'] ?? 'Unknown'; // Get the user's first name from session
+    $stockAfter = $_POST['stock_after'];
 
-    // Prepare SQL statement to prevent SQL injection
-    $stmt = $conn->prepare("INSERT INTO users (firstname, lastname, username, password, user_type) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssss", $firstname, $lastname, $username, $password, $userType);
+    // Begin transaction
+    $conn->begin_transaction();
 
-    // Execute the statement and check for success
-    if ($stmt->execute()) {
-        echo "New user created successfully";
-        // Redirect to user list page
-        echo "<script>window.location.href='user.php'</script>";
-    } else {
-        // Print error message
-        echo "Error: " . $stmt->error;
+    try {
+        // Update inventory table
+        $updateInventorySql = "UPDATE inventory SET available_stocks = ? WHERE product_id = ?";
+        $stmt = $conn->prepare($updateInventorySql);
+        $stmt->bind_param("ii", $stockAfter, $productId);
+        $stmt->execute();
+        $stmt->close();
+
+        // Insert into adjustment_logs table
+        $insertLogSql = "INSERT INTO adjustment_log (product_id, adjustment_quantity, reason, adjusted_by, adjustment_date) VALUES (?, ?, ?, ?, NOW())";
+        $stmt = $conn->prepare($insertLogSql);
+        $stmt->bind_param("iiss", $productId, $removeStocks, $reason, $adjustedBy);
+        $stmt->execute();
+        $stmt->close();
+
+        // Commit transaction
+        $conn->commit();
+
+        // Redirect or display success message
+        // header("Location: success_page.php");
+        header("Location: inventory.php");
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        $conn->rollback();
+        // Display error message
+        echo "Error: " . $e->getMessage();
     }
 
-    // Close statement and connection
-    $stmt->close();
+    // Close connection
     $conn->close();
 }
-?>
 
+?>
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>User Register</title>
+    <title>STOCK ADJUSTMENT | Konikim</title>
 
     <!-- Montserrat Font -->
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -59,10 +78,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.0/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <link href="https://cdn.datatables.net/1.10.25/css/dataTables.bootstrap.min.css" rel="stylesheet">
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css\dashboard.css">
+
 </head>
 
 <body>
@@ -185,65 +206,97 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <!-- Main -->
         <main class="main-container">
             <div class="main-title">
-                <p class="font-weight-bold">USER CREATION</p>
+                <p class="font-weight-bold">INVENTORY</p>
             </div>
-
             <div class="container">
                 <div class="row">
                     <div class="col-md-6">
-                        <h3>User Information</h3>
+                        <h3>STOCK ADJUSTMENT</h3>
                     </div>
                 </div>
+
                 <form method="POST">
                     <div class="row">
-                        <div class="col-md-6">
-                            <label for="firstname">First Name</label>
-                            <input type="text" class="form-control" name="firstname" placeholder="Enter First Name" required>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <label for="lastname">Last Name</label>
-                            <input type="text" class="form-control" name="lastname" placeholder="Enter Last Name" required>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <label for="username">Username</label>
-                            <input type="text" class="form-control" name="username" placeholder="Enter Username" required>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <label for="password">Password</label>
-                            <div class="input-group">
-                                <input type="password" class="form-control" id="password" name="password" placeholder="Enter Password" required>
-                                <span class="input-group-btn">
-                                    <button id="togglePassword" class="btn btn-default" type="button">
-                                        <span class="glyphicon glyphicon-eye-open"></span>
-                                    </button>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
                         <div class="col-md-3">
-                            <label for="userType">User Type</label>
-                            <select id="userType" name="user_level" class="form-control" required>
-                                <option value="Administrator">Administrator</option>
-                                <option value="Staff">Staff</option>
+                            <label for="productDropdown">Select Product Name:</label>
+                            <select id="productDropdown" class="form-control" name="productDropdown">
+                                <option value="">Select Product</option>
+                                <?php
+                                require_once('db_config.php');
+
+                                if ($conn->connect_error) {
+                                    die("Connection failed: " . $conn->connect_error);
+                                }
+
+                                // Adjust the query to join the inventory table with the product_list table
+                                $sql = "SELECT p.id, p.productname FROM product_list p JOIN inventory i ON p.id = i.product_id";
+                                $result = $conn->query($sql);
+
+                                if ($result) {
+                                    if ($result->num_rows > 0) {
+                                        while ($row = $result->fetch_assoc()) {
+                                            echo "<option value='" . $row["id"] . "'>" . htmlspecialchars($row["productname"]) . "</option>";
+                                        }
+                                    } else {
+                                        echo "<option>No products found</option>";
+                                    }
+                                } else {
+                                    echo "<option>Error in fetching products</option>";
+                                }
+                                $conn->close();
+                                ?>
                             </select>
                         </div>
+                        <div class="col-md-3">
+                            <label for="supplier">Supplier</label>
+                            <input type="text" class="form-control" id="supplier" name="supplier" required readonly>
+
+                        </div>
+                        <div class="col-md-3">
+                            <label for="productunit">Units</label>
+                            <input type="text" class="form-control" id="productunit" name="productunit" required readonly>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="in_stocks">In Stocks</label>
+                            <input type="number" class="form-control" id="in_stocks" name="in_stocks" required readonly>
+                        </div>
                     </div>
+
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="remove_stocks">Remove Stocks</label>
+                            <input type="number" class="form-control" id="remove_stocks" name="remove_stocks" min="0" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="stock_after">Stock After</label>
+                            <input type="number" class="form-control" id="stock_after" name="stock_after" required readonly>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="adjusted_by">Adjusted By</label>
+                            <input type="text" class="form-control" name="adjusted_by" value="<?php echo htmlspecialchars($userFirstName); ?>" required readonly>
+                        </div>
+                    </div>
+                    <!-- Reason Field (Already in your form) -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="reason">Reason</label>
+                            <textarea class="form-control" name="reason" id="reason" style="width: 600px; height: 300px;" required></textarea>
+                        </div>
+                    </div>
+
                     <div class="row" style="margin-top: 1%">
                         <div class="col-md-6">
-                            <button type="text" name="submit" class="btn btn-primary" style="background-color: #02964C; border-color: #02964C;">Submit</button>
-                            <a href="user.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;"> View Users List</a>
+                            <button type="submit" class="btn btn-primary" style="background-color: #02964C; border-color: #02964C;">Submit</button>
+                            <a href="user.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;">View Users List</a>
                         </div>
                     </div>
                 </form>
+
+
             </div>
         </main>
+        <!-- End Main -->
+
     </div>
 
     <!-- Scripts -->
@@ -252,19 +305,44 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <!-- Custom JS -->
     <script src="js\scipt.js"></script>
     <script>
-        document.getElementById('togglePassword').addEventListener('click', function(e) {
-            // Toggle the type of the password field
-            var passwordInput = document.getElementById('password');
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                this.innerHTML = '<span class="glyphicon glyphicon-eye-close"></span>';
-            } else {
-                passwordInput.type = 'password';
-                this.innerHTML = '<span class="glyphicon glyphicon-eye-open"></span>';
+        document.getElementById("productDropdown").addEventListener("change", function() {
+            var productId = this.value;
+
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "inventory_fetch_products.php?productId=" + productId, true);
+            xhr.onreadystatechange = function() {
+                if (this.readyState == 4) {
+                    if (this.status == 200) {
+                        try {
+                            var response = JSON.parse(this.responseText);
+                            document.getElementById("supplier").value = response.supplier;
+                            document.getElementById("productunit").value = response.productunit;
+                            document.getElementById("in_stocks").value = response.available_stocks;
+                        } catch (e) {
+                            console.error("Error parsing response: ", e);
+                        }
+                    } else {
+                        console.error("AJAX request failed: ", this.status);
+                    }
+                }
+            };
+            xhr.send();
+        });
+        document.getElementById("remove_stocks").addEventListener("input", function() {
+            var inStocks = parseInt(document.getElementById("in_stocks").value) || 0;
+            var removeStocks = parseInt(this.value) || 0;
+
+            // Check if removeStocks is greater than inStocks
+            if (removeStocks > inStocks) {
+                alert("Cannot remove more stocks than available.");
+                this.value = inStocks; // Reset to max possible value
+                removeStocks = inStocks;
             }
+
+            var stockAfter = inStocks - removeStocks;
+            document.getElementById("stock_after").value = stockAfter;
         });
     </script>
-
 </body>
 
 </html>

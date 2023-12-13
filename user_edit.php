@@ -1,26 +1,45 @@
 <?php
-require_once 'db_config.php';
+session_start();
 
+// Check if the user is logged in and if the user is not an administrator
+if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] != 'Administrator') {
+    // Redirect to a different page or show an error
+    header("Location: unauthorized.php"); // Redirect to an unauthorized access page
+    exit();
+}
+require_once 'db_config.php';
 if (isset($_POST['update'])) {
 
     $eid = $_GET['editid'];
 
-    $employee_name = $_POST['employee_name'];
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-    $user_level = $_POST['user_level'];
+    // Sanitize input data to prevent SQL injection
+    $firstname = mysqli_real_escape_string($conn, $_POST['firstname']);
+    $lastname = mysqli_real_escape_string($conn, $_POST['lastname']);
+    $username = mysqli_real_escape_string($conn, $_POST['username']);
 
-    $sql = mysqli_query($conn, "UPDATE users SET employee_name='$employee_name', username='$username', password='$password', user_level='$user_level' WHERE id='$eid'");
+    // Hash the password if it's not empty, otherwise, leave it unchanged
+    if (!empty($_POST['password'])) {
+        $password = mysqli_real_escape_string($conn, password_hash($_POST['password'], PASSWORD_DEFAULT));
+        $passwordQuery = "password='$password',";
+    } else {
+        $passwordQuery = "";
+    }
 
-    if ($sql) {
+    $user_level = mysqli_real_escape_string($conn, $_POST['user_level']);
+
+    // Update query with firstname and lastname
+    $sql = "UPDATE users SET firstname='$firstname', lastname='$lastname', username='$username', $passwordQuery user_type='$user_level' WHERE id='$eid'";
+
+    if (mysqli_query($conn, $sql)) {
         echo "<script>alert('User Updated Successfully!')</script>;";
         echo "<script>window.location.href='user.php'</script>";
     } else {
-        echo "<script>alert('Supplier Updated Failed!')</script>";
+        echo "<script>alert('User Update Failed!')</script>";
     }
 }
 
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -59,10 +78,32 @@ if (isset($_POST['update'])) {
                 <span class="material-icons-outlined">search</span>
             </div>
             <div class="header-right">
-                <span class="material-icons-outlined">notifications</span>
-                <span class="material-icons-outlined">email</span>
-                <span class="material-icons-outlined">account_circle</span>
+                <span class="material-icons-outlined" id="userIcon">account_circle</span>
+                <div id="userOptions" class="user-options" style="display: none;">
+                    <form>
+                        <button type="button" id="logoutButton">Logout</button>
+                    </form>
+                </div>
             </div>
+            <script>
+                document.getElementById('userIcon').addEventListener('click', function() {
+                    var userOptions = document.getElementById('userOptions');
+                    if (userOptions.style.display === 'none') {
+                        userOptions.style.display = 'block';
+                    } else {
+                        userOptions.style.display = 'none';
+                    }
+                });
+
+                document.getElementById('logoutButton').addEventListener('click', function() {
+                    fetch('logout.php') // Make sure the path to logout.php is correct
+                        .then(response => {
+                            // Redirect to login page or show a logged out message
+                            window.location.href = 'login.php'; // Replace 'login.php' with your login page
+                        })
+                        .catch(error => console.error('Error:', error));
+                });
+            </script>
         </header>
         <!-- End Header -->
 
@@ -119,22 +160,24 @@ if (isset($_POST['update'])) {
                         <span class="material-icons-outlined">poll</span> Reports
                     </a>
                 </li>
-                <hr class="sidebar-divider hr-sidebar-divider">
-                <li class="sidebar-list-item">
-                    <a href="user.php" target="_self">
-                        <span class="material-icons-outlined">manage_accounts</span> Users
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="sms.php" target="_self">
-                        <span class="material-icons-outlined">message</span> SMS
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="cms.php" target="_self">
-                        <span class="material-icons-outlined">settings</span> Settings
-                    </a>
-                </li>
+                <?php if ($_SESSION['user_type'] == 'Administrator') : ?>
+                    <hr class="sidebar-divider hr-sidebar-divider">
+                    <li class="sidebar-list-item">
+                        <a href="user.php" target="_self">
+                            <span class="material-icons-outlined">manage_accounts</span> Users
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="sms.php" target="_self">
+                            <span class="material-icons-outlined">message</span> SMS
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="cms.php" target="_self">
+                            <span class="material-icons-outlined">settings</span> Settings
+                        </a>
+                    </li>
+                <?php endif; ?>
             </ul>
 
         </aside>
@@ -160,19 +203,27 @@ if (isset($_POST['update'])) {
                     ?>
                         <div class="row">
                             <div class="col-md-6">
-                                <label for="employee_name">Full Name</label>
-                                <input type="text" class="form-control" value="<?php echo $row['employee_name'] ?>" name="employee_name" placeholder="Enter Full Name" required>
+                                <label for="firstname">First Name</label>
+                                <input type="text" class="form-control" value="<?php echo $row['firstname']; ?>" name="firstname" placeholder="Enter First Name" required>
                             </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="lastname">Last Name</label>
+                                <input type="text" class="form-control" value="<?php echo $row['lastname']; ?>" name="lastname" placeholder="Enter Last Name" required>
+                            </div>
+                        </div>
+                        <div class="row">
                             <div class="col-md-6">
                                 <label for="username">Username</label>
-                                <input type="text" class="form-control" value="<?php echo $row['username'] ?>" name="username" placeholder="Enter Username" required>
+                                <input type="text" class="form-control" value="<?php echo $row['username']; ?>" name="username" placeholder="Enter Username" required>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-md-6">
                                 <label for="password">Password</label>
                                 <div class="input-group">
-                                    <input type="password" class="form-control" value="<?php echo $row['password'] ?>" id="password" name="password" placeholder="Enter Password" required>
+                                    <input type="password" class="form-control" id="password" name="password" placeholder="Enter Password">
                                     <span class="input-group-btn">
                                         <button id="togglePassword" class="btn btn-default" type="button">
                                             <span class="glyphicon glyphicon-eye-open"></span>
@@ -184,9 +235,9 @@ if (isset($_POST['update'])) {
                         <div class="row">
                             <div class="col-md-3">
                                 <label for="userType">User Type</label>
-                                <select id="userType" value="<?php echo $row['user_level'] ?>" name="user_level" class="form-control" required>
-                                    <option value="Administrator">Administrator</option>
-                                    <option value="Staff">Staff</option>
+                                <select id="userType" name="user_level" class="form-control" required>
+                                    <option value="Administrator" <?php echo ($row['user_type'] == 'Administrator') ? 'selected' : ''; ?>>Administrator</option>
+                                    <option value="Staff" <?php echo ($row['user_type'] == 'Staff') ? 'selected' : ''; ?>>Staff</option>
                                 </select>
                             </div>
                         </div>
@@ -194,11 +245,10 @@ if (isset($_POST['update'])) {
                     ?>
                     <div class="row" style="margin-top: 1%">
                         <div class="col-md-6">
-                            <button type="text" name="update" class="btn btn-primary" style="background-color: #02964C; border-color: #02964C;">Submit</button>
+                            <button type="submit" name="update" class="btn btn-primary" style="background-color: #02964C; border-color: #02964C;">Submit</button>
                             <a href="user.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;"> View Users List</a>
                         </div>
                     </div>
-
                 </form>
             </div>
 

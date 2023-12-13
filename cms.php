@@ -1,3 +1,15 @@
+<?php
+session_start();
+
+// Check if the user is logged in and if the user is not an administrator
+if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] != 'Administrator') {
+    // Redirect to a different page or show an error
+    header("Location: unauthorized.php"); // Redirect to an unauthorized access page
+    exit();
+}
+?>
+
+</php>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -35,10 +47,32 @@
                 <span class="material-icons-outlined">search</span>
             </div>
             <div class="header-right">
-                <span class="material-icons-outlined">notifications</span>
-                <span class="material-icons-outlined">email</span>
-                <span class="material-icons-outlined">account_circle</span>
+                <span class="material-icons-outlined" id="userIcon">account_circle</span>
+                <div id="userOptions" class="user-options" style="display: none;">
+                    <form>
+                        <button type="button" id="logoutButton">Logout</button>
+                    </form>
+                </div>
             </div>
+            <script>
+                document.getElementById('userIcon').addEventListener('click', function() {
+                    var userOptions = document.getElementById('userOptions');
+                    if (userOptions.style.display === 'none') {
+                        userOptions.style.display = 'block';
+                    } else {
+                        userOptions.style.display = 'none';
+                    }
+                });
+
+                document.getElementById('logoutButton').addEventListener('click', function() {
+                    fetch('logout.php') // Make sure the path to logout.php is correct
+                        .then(response => {
+                            // Redirect to login page or show a logged out message
+                            window.location.href = 'login.php'; // Replace 'login.php' with your login page
+                        })
+                        .catch(error => console.error('Error:', error));
+                });
+            </script>
         </header>
         <!-- End Header -->
 
@@ -95,22 +129,24 @@
                         <span class="material-icons-outlined">poll</span> Reports
                     </a>
                 </li>
-                <hr class="sidebar-divider hr-sidebar-divider">
-                <li class="sidebar-list-item">
-                    <a href="user.php" target="_self">
-                        <span class="material-icons-outlined">manage_accounts</span> Users
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="sms.php" target="_self">
-                        <span class="material-icons-outlined">message</span> SMS
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="cms.php" target="_self">
-                        <span class="material-icons-outlined">settings</span> Settings
-                    </a>
-                </li>
+                <?php if ($_SESSION['user_type'] == 'Administrator') : ?>
+                    <hr class="sidebar-divider hr-sidebar-divider">
+                    <li class="sidebar-list-item">
+                        <a href="user.php" target="_self">
+                            <span class="material-icons-outlined">manage_accounts</span> Users
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="sms.php" target="_self">
+                            <span class="material-icons-outlined">message</span> SMS
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="cms.php" target="_self">
+                            <span class="material-icons-outlined">settings</span> Settings
+                        </a>
+                    </li>
+                <?php endif; ?>
             </ul>
 
         </aside>

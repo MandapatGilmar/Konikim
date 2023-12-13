@@ -15,50 +15,46 @@ include 'db_config.php';
 
 
 // Generate Purchase Order Code
-$query = "SELECT id FROM purchase_orders ORDER BY id DESC";
+$query = "SELECT id FROM return_orders ORDER BY id DESC";
 $result = mysqli_query($conn, $query);
-$purchasecode = "PO-00001";
+$returncode = "RC-00001";
 
 if ($result && mysqli_num_rows($result) > 0) {
     $row = mysqli_fetch_array($result);
     $lastid = $row['id'];
 
     if (!empty($lastid)) {
-        $code = str_replace("PO-", "", $lastid);
-        $purcode = str_pad($code + 1, 5, '0', STR_PAD_LEFT);
-        $purchasecode = "PO-" . $purcode;
+        $code = str_replace("RC-", "", $lastid);
+        $retcode = str_pad($code + 1, 5, '0', STR_PAD_LEFT);
+        $returncode = "RC-" . $retcode;
     }
 }
 
 // Check for form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $supplier = mysqli_real_escape_string($conn, $_POST['supplierValue']);
-    $purchasecode = mysqli_real_escape_string($conn, $_POST['purchasecode']);
+    $returncode = mysqli_real_escape_string($conn, $_POST['returncode']);
     $productIds = $_POST['product_id'];
     $productQuantities = $_POST['product_quantity'];
     $productPrices = $_POST['product_price'];
     $productUnitPrices = $_POST['product_total'];
-    $poDiscountPerc = $_POST['discount_perc']; // Percentage of discount
-    $poTaxPerc = $_POST['tax_perc']; // Percentage of tax
-    $poSubtotal = $_POST['sub-total'];
+
     $poGrandtotal = $_POST['grand-total'];
 
     // Calculating total discount and tax based on percentages
-    $poDiscountTotal = $poSubtotal * ($poDiscountPerc / 100);
-    $poTaxTotal = $poSubtotal * ($poTaxPerc / 100);
 
     $conn->begin_transaction();
 
     try {
         // Insert into purchase_orders
-        $orderStmt = $conn->prepare("INSERT INTO purchase_orders (purchasecode, supplier, poSubtotal, poDiscount, poTax, poDiscountTotal, poTaxTotal, poGrandtotal, dateCreated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-        $orderStmt->bind_param("ssdddddd", $purchasecode, $supplier, $poSubtotal, $poDiscountPerc, $poTaxPerc, $poDiscountTotal, $poTaxTotal, $poGrandtotal);
+        $orderStmt = $conn->prepare("INSERT INTO return_orders (returncode, supplier, subtotal, dateCreated) VALUES (?, ?, ?, NOW())");
+        $orderStmt->bind_param("ssd", $returncode, $supplier, $poGrandtotal);
         $orderStmt->execute();
 
-        $purchase_order_id = $conn->insert_id;
+        $return_order_id = $conn->insert_id;
 
         // Prepare statement for inserting into purchase_order_items
-        $itemStmt = $conn->prepare("INSERT INTO purchase_order_items (purchase_order_id, product_id, productname, productunit, productattributes, productcategory, productprice, productquantity, productunitprice, poDiscount, poTax) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $itemStmt = $conn->prepare("INSERT INTO return_order_items (return_order_id, product_id, productname, productunit, productattributes, productcategory, productprice, productquantity, productunitprice) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
         foreach ($productIds as $i => $productId) {
             // Fetch product details from the database
@@ -75,12 +71,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $productCategory = $productDetails['productcategory'];
 
             // Calculate item-level discount and tax based on individual item price and quantity
-            $itemDiscount = $productUnitPrices[$i] * ($poDiscountPerc / 100);
-            $itemTax = $productUnitPrices[$i] * ($poTaxPerc / 100);
+
 
             // Insert into purchase_order_items
-            $itemStmt->bind_param("iissssidddd", $purchase_order_id, $productId, $productName, $productUnit, $productAttributes, $productCategory, $productPrices[$i], $productQuantities[$i], $productUnitPrices[$i], $itemDiscount, $itemTax);
+            $itemStmt->bind_param("iisssssdd", $return_order_id, $productId, $productName, $productUnit, $productAttributes, $productCategory, $productPrices[$i], $productQuantities[$i], $productUnitPrices[$i]);
             $itemStmt->execute();
+
 
             if ($itemStmt->error) {
                 throw new Exception("Error: " . htmlspecialchars($itemStmt->error));
@@ -89,7 +85,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         // Commit transaction
         $conn->commit();
-        header("Location: purchase_orders.php");
+        header("Location: return_list.php");
     } catch (Exception $e) {
         // Rollback transaction on error
         $conn->rollback();
@@ -260,7 +256,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <div class="row">
                         <div class="col-md-6">
                             <label for="productcode">Purchase Order Code</label>
-                            <input type="text" class="form-control" name="purchasecode" value="<?php echo $purchasecode; ?>" readonly required>
+                            <input type="text" class="form-control" name="returncode" value="<?php echo $returncode; ?>" readonly required>
                         </div>
                         <div class="col-md-3">
                             <label for="supplierDropdown">Select Supplier:</label>
@@ -350,28 +346,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         </tbody>
                         <tfoot>
                             <tr>
-                                <th class="text-right py-1 px-2" colspan="7">Sub Total</th>
-                                <th class="text-right py-1 px-2 sub-total">0</th>
-                                <input type="hidden" name="sub-total" value="0">
-
-                            </tr>
-                            <tr>
-                                <th class="text-right py-1 px-2" colspan="7">Discount <input style="width:40px !important" name="discount_perc" type="number" min="0" max="100" value="0">%
-                                    <input type="hidden" name="discount" value="0">
-                                    <input type="hidden" name="poDiscountTotal" value="0">
-
-                                </th>
-                                <th class="text-right py-1 px-2 discount">0</th>
-                            </tr>
-                            <tr>
-                                <th class="text-right py-1 px-2" colspan="7">Tax <input style="width:40px !important" name="tax_perc" type="number" min="0" max="100" value="0">%
-                                    <input type="hidden" name="tax" value="0">
-                                    <input type="hidden" name="poTaxTotal" value="0">
-
-                                </th>
-                                <th class="text-right py-1 px-2 tax">0</th>
-                            </tr>
-                            <tr>
                                 <th class="text-right py-1 px-2" colspan="7">Total</th>
                                 <th class="text-right py-1 px-2 grand-total">0</th>
                                 <input type="hidden" name="grand-total" value="0">
@@ -447,7 +421,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         document.addEventListener("DOMContentLoaded", function() {
             const addItemButton = document.querySelector("button[name='add']");
             const tableBody = document.getElementById('list').getElementsByTagName('tbody')[0];
-            const subtotalDisplay = document.querySelector('.sub-total');
             let subtotal = 0;
 
             addItemButton.addEventListener('click', function(event) {
@@ -522,18 +495,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
 
             function updateFooter() {
-                const discountPerc = parseFloat(document.querySelector("input[name='discount_perc']").value) / 100 || 0;
-                const taxPerc = parseFloat(document.querySelector("input[name='tax_perc']").value) / 100 || 0;
-                const discount = subtotal * discountPerc;
-                const tax = (subtotal - discount) * taxPerc;
-                const grandTotal = subtotal - discount + tax;
+
+                const grandTotal = subtotal;
                 // Update the footer of the table
-                subtotalDisplay.textContent = subtotal.toFixed(2);
-                document.querySelector("input[name='sub-total']").value = subtotal.toFixed(2);
-                document.querySelector("input[name='discount']").value = discount.toFixed(2); // Update the discount total
-                document.querySelector("input[name='tax']").value = tax.toFixed(2); // Update the tax total
-                document.querySelector('.discount').textContent = discount.toFixed(2);
-                document.querySelector('.tax').textContent = tax.toFixed(2);
+
                 document.querySelector('.grand-total').textContent = grandTotal.toFixed(2);
                 document.querySelector("input[name='grand-total']").value = grandTotal.toFixed(2);
             }

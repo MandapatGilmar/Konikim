@@ -1,16 +1,52 @@
 <?php
-// Connect to the database
-// Include your database configuration here
-include 'db_config.php';
+session_start();
 
+if (!isset($_SESSION['user_type'])) {
+    header('Location: login.php'); // Redirect to login page
+    exit();
+}
+
+// Prevent caching
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+require_once 'db_config.php';
+
+// Check if the delete ID is set in the URL
 if (isset($_GET['delid'])) {
+    $delid = intval($_GET['delid']);
 
-    $id = intval($_GET['delid']);
-    $sql = mysqli_query($conn, "DELETE FROM purchase_order_list WHERE id='$id'");
-    echo "<script>alert('Product deleted successfully');</script>";
-    echo "<script>window.location.href='purchase_orders.php'</script>";
+    // Start a transaction
+    $conn->begin_transaction();
+
+    try {
+        // First, delete the related items in purchase_order_items
+        $stmt = $conn->prepare("DELETE FROM purchase_order_items WHERE purchase_order_id = ?");
+        $stmt->bind_param("i", $delid);
+        $stmt->execute();
+        $stmt->close();
+
+        // Then, delete the purchase order itself
+        $stmt = $conn->prepare("DELETE FROM purchase_orders WHERE id = ?");
+        $stmt->bind_param("i", $delid);
+        $stmt->execute();
+        $stmt->close();
+
+        // Commit the transaction
+        $conn->commit();
+
+        // Redirect to the same page to see the updated list
+        header("Location: purchase_orders.php");
+        exit();
+    } catch (Exception $e) {
+        // Rollback the transaction in case of error
+        $conn->rollback();
+        // Handle error - you might want to show a user-friendly message
+        echo "Error: " . $e->getMessage();
+    }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -49,10 +85,32 @@ if (isset($_GET['delid'])) {
                 <span class="material-icons-outlined">search</span>
             </div>
             <div class="header-right">
-                <span class="material-icons-outlined">notifications</span>
-                <span class="material-icons-outlined">email</span>
-                <span class="material-icons-outlined">account_circle</span>
+                <span class="material-icons-outlined" id="userIcon">account_circle</span>
+                <div id="userOptions" class="user-options" style="display: none;">
+                    <form>
+                        <button type="button" id="logoutButton">Logout</button>
+                    </form>
+                </div>
             </div>
+            <script>
+                document.getElementById('userIcon').addEventListener('click', function() {
+                    var userOptions = document.getElementById('userOptions');
+                    if (userOptions.style.display === 'none') {
+                        userOptions.style.display = 'block';
+                    } else {
+                        userOptions.style.display = 'none';
+                    }
+                });
+
+                document.getElementById('logoutButton').addEventListener('click', function() {
+                    fetch('logout.php') // Make sure the path to logout.php is correct
+                        .then(response => {
+                            // Redirect to login page or show a logged out message
+                            window.location.href = 'login.php'; // Replace 'login.php' with your login page
+                        })
+                        .catch(error => console.error('Error:', error));
+                });
+            </script>
         </header>
         <!-- End Header -->
 
@@ -109,22 +167,24 @@ if (isset($_GET['delid'])) {
                         <span class="material-icons-outlined">poll</span> Reports
                     </a>
                 </li>
-                <hr class="sidebar-divider hr-sidebar-divider">
-                <li class="sidebar-list-item">
-                    <a href="user.php" target="_self">
-                        <span class="material-icons-outlined">manage_accounts</span> Users
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="sms.php" target="_self">
-                        <span class="material-icons-outlined">message</span> SMS
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="cms.php" target="_self">
-                        <span class="material-icons-outlined">settings</span> Settings
-                    </a>
-                </li>
+                <?php if ($_SESSION['user_type'] == 'Administrator') : ?>
+                    <hr class="sidebar-divider hr-sidebar-divider">
+                    <li class="sidebar-list-item">
+                        <a href="user.php" target="_self">
+                            <span class="material-icons-outlined">manage_accounts</span> Users
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="sms.php" target="_self">
+                            <span class="material-icons-outlined">message</span> SMS
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="cms.php" target="_self">
+                            <span class="material-icons-outlined">settings</span> Settings
+                        </a>
+                    </li>
+                <?php endif; ?>
             </ul>
 
         </aside>
@@ -170,25 +230,30 @@ if (isset($_GET['delid'])) {
                                             // Determine the status string and corresponding class
                                             if ($row['status'] == 0) {
                                                 $statusString = 'Pending';
-                                                $statusClass = 'label label-danger'; // Bootstrap class for red
+                                                $statusClass = 'label label-danger';
+                                                $isReceived = false;
                                             } else {
                                                 $statusString = 'Received';
-                                                $statusClass = 'label label-success'; // Bootstrap class for green
+                                                $statusClass = 'label label-success';
+                                                $isReceived = true;
                                             }
                                     ?>
                                             <tr>
                                                 <td><?php echo $count ?></td>
                                                 <td><?php echo $row['purchasecode']; ?></td>
                                                 <td><?php echo $row['supplier']; ?></td>
-                                                <td><?php echo $row['itemCount']; ?></td> <!-- Display the item count -->
-                                                <td><?php echo $row['poGrandtotal']; ?></td> <!-- Display the grand total -->
-                                                <td><span class="<?php echo $statusClass; ?>"><?php echo $statusString; ?></span></td> <!-- Use Bootstrap classes -->
+                                                <td><?php echo $row['itemCount']; ?></td>
+                                                <td><?php echo $row['poGrandtotal']; ?></td>
+                                                <td><span class="<?php echo $statusClass; ?>"><?php echo $statusString; ?></span></td>
                                                 <td><?php echo $row['dateCreated']; ?></td>
                                                 <td>
                                                     <div style="display: flex; align-items: center;">
-                                                        <a href="#" class="btn btn-info btn-sm view-purchase-order" data-purchaseid="<?php echo htmlentities($row['id']); ?>" style="margin-right: 8px; position: relative;"><span class="glyphicon glyphicon-search"></span> View </a>
-                                                        <a href="purchase_order_edit.php?editid=<?php echo htmlentities($row['id']); ?>" class="btn btn-warning btn-sm" style="margin-right: 8px; position: relative;"><span class="glyphicon glyphicon-pencil"></span> Edit </a>
-                                                        <a href="purchase_orders.php?delid=<?php echo htmlentities($row['id']); ?> " onClick="return confirm('Do you really want to remove this record?')" class="btn btn-danger btn-sm" style="background-color: #cc3c43; border-color: #cc3c43;"><span class="glyphicon glyphicon-trash"></span> Delete </a>
+                                                        <a href="#" class="btn btn-info btn-sm view-purchase-order" data-purchaseid="<?php echo htmlentities($row['id']); ?>" style="margin-right: 8px;"><span class="glyphicon glyphicon-search"></span> View </a>
+                                                        <?php if (!$isReceived) : ?>
+                                                            <a href="received_items.php?receivedid=<?php echo htmlentities($row['id']); ?>" class="btn btn-warning btn-sm" style="margin-right: 8px;"><span class="glyphicon glyphicon-plus"></span> Received </a>
+                                                            <a href="purchase_order_edit.php?editid=<?php echo htmlentities($row['id']); ?>" class="btn btn-warning btn-sm" style="margin-right: 8px;"><span class="glyphicon glyphicon-pencil"></span> Edit </a>
+                                                            <a href="purchase_orders.php?delid=<?php echo htmlentities($row['id']); ?>" onClick="return confirm('Do you really want to remove this record?')" class="btn btn-danger btn-sm" style="background-color: #cc3c43; border-color: #cc3c43;"><span class="glyphicon glyphicon-trash"></span> Delete </a>
+                                                        <?php endif; ?>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -198,16 +263,19 @@ if (isset($_GET['delid'])) {
                                     }
                                     ?>
                                     <div class="modal fade" id="productDetailsModal" tabindex="-1" role="dialog" aria-labelledby="productDetailsModalLabel" aria-hidden="true">
-                                        <div class="modal-dialog">
+                                        <div class="modal-dialog modal-lg"> <!-- Change this line for a larger modal -->
                                             <div class="modal-content">
                                                 <div class="modal-header">
                                                     <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                                                    <h4 class="modal-title" id="productDetailsModalLabel"><b>Purchase Order Details</h4>
+                                                    <h4 class="modal-title" id="productDetailsModalLabel"><b>Purchase Order Details</b></h4>
                                                 </div>
                                                 <div class="modal-body">
                                                     <!-- Content will be loaded here via jQuery -->
-                                                    <button type="submit" class="btn btn-primary">Submit</button>
-
+                                                    <!-- Example content -->
+                                                    <div id="orderDetailsContent">
+                                                        <!-- Dynamic content goes here -->
+                                                    </div>
+                                                    <!-- End Example content -->
                                                 </div>
                                                 <div class="modal-footer">
                                                     <button type="button" class="btn btn-danger btn-sm" data-dismiss="modal">Close</button>
@@ -233,47 +301,27 @@ if (isset($_GET['delid'])) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.3/apexcharts.min.js"></script>
     <script>
         $(document).ready(function() {
+            // Handle opening the modal and loading the purchase order details
             $('.view-purchase-order').on('click', function(e) {
                 e.preventDefault();
                 var purchaseId = $(this).data('purchaseid');
                 $.ajax({
-                    url: 'purchase_order_view.php', // Make sure this path is correct
+                    url: 'purchase_order_view.php', // Ensure the path is correct
                     method: 'POST',
                     data: {
                         id: purchaseId
                     },
                     success: function(response) {
                         $('#productDetailsModal .modal-body').html(response);
+                        // Dynamically set the purchaseId for the "Received" button inside the modal
+                        $('#productDetailsModal').find('#receivedButton').data('purchaseid', purchaseId);
                         $('#productDetailsModal').modal('show');
                     }
                 });
             });
         });
     </script>
-    <script>
-        function showReceivedText() {
-            // Display the "Received" text
-            document.getElementById('receivedText').style.display = 'block';
-        }
 
-        function handleReceived(purchaseId) {
-            $.ajax({
-                url: 'handle_received.php', // PHP script to handle the update and insert
-                type: 'POST',
-                data: {
-                    id: purchaseId
-                },
-                success: function(response) {
-                    // You might want to show a confirmation message or update the UI
-                    alert('Purchase order received successfully');
-                },
-                error: function(error) {
-                    // Handle errors
-                    console.error('Error:', error);
-                }
-            });
-        }
-    </script>
     <!-- Custom JS -->
     <script src="js\scipt.js"></script>
 </body>

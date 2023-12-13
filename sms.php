@@ -1,3 +1,50 @@
+<?php
+session_start();
+
+// Check if the user is logged in and if the user is not an administrator
+if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] != 'Administrator') {
+    // Redirect to a different page or show an error
+    header("Location: unauthorized.php"); // Redirect to an unauthorized access page
+    exit();
+}
+$smsSent = false; // Set to true if SMS has been sent successfully
+// Check if the form has been submitted
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // Capture form data
+    $supplierId = $_POST['supplierDropdown'];
+    $contactNumber = $_POST['contactNumber'];
+    $staffName = $_POST['staffName'];
+    $message = $_POST['message'];
+
+    // Semaphore API credentials
+    $apikey = '24cfd129f531fe4fc7279770c3212a0d'; // Replace with your Semaphore API key
+
+    // Prepare data for API request
+    $data = array(
+        "apikey" => $apikey,
+        "number" => $contactNumber,
+        "message" => $message
+        // Add "sendername" if you wish to specify a sender name
+    );
+
+    // Initialize cURL session
+    $ch = curl_init('https://api.semaphore.co/api/v4/messages');
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    // Execute cURL session and capture response
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    // Process response (Optional)
+    // $response_data = json_decode($response, true);
+    // ... Handle response as needed ...
+
+
+    $smsSent = true;
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -97,22 +144,24 @@
                         <span class="material-icons-outlined">poll</span> Reports
                     </a>
                 </li>
-                <hr class="sidebar-divider hr-sidebar-divider">
-                <li class="sidebar-list-item">
-                    <a href="user.php" target="_self">
-                        <span class="material-icons-outlined">manage_accounts</span> Users
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="sms.php" target="_self">
-                        <span class="material-icons-outlined">message</span> SMS
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="cms.php" target="_self">
-                        <span class="material-icons-outlined">settings</span> Settings
-                    </a>
-                </li>
+                <?php if ($_SESSION['user_type'] == 'Administrator') : ?>
+                    <hr class="sidebar-divider hr-sidebar-divider">
+                    <li class="sidebar-list-item">
+                        <a href="user.php" target="_self">
+                            <span class="material-icons-outlined">manage_accounts</span> Users
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="sms.php" target="_self">
+                            <span class="material-icons-outlined">message</span> SMS
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="cms.php" target="_self">
+                            <span class="material-icons-outlined">settings</span> Settings
+                        </a>
+                    </li>
+                <?php endif; ?>
             </ul>
 
         </aside>
@@ -130,7 +179,20 @@
                     </div>
                 </div>
 
-                <form action="" method="POST">
+                <form method="POST">
+                    <?php if ($smsSent) : ?>
+                        <div class="alert alert-success" role="alert">
+                            SMS sent successfully!
+                        </div>
+                        <script>
+                            // Automatically hide the alert after 5 seconds
+                            $(document).ready(function() {
+                                setTimeout(function() {
+                                    $('.alert').fadeOut('slow');
+                                }, 5000);
+                            });
+                        </script>
+                    <?php endif; ?>
                     <div class="row">
                         <div class="col-md-3">
                             <label for="supplierDropdown">Select Supplier:</label>
@@ -183,11 +245,10 @@
                     </div>
                     <div class="row" style="margin-top: 1%">
                         <div class="col-md-6">
-                            <button type="text" name="submit" class="btn btn-primary" style="background-color: #02964C; border-color: #02964C;">Submit</button>
+                            <button type="submit" class="btn btn-primary" style="background-color: #02964C; border-color: #02964C;">Submit</button>
                             <a href="user.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;"> View Users List</a>
                         </div>
                     </div>
-                    <!-- Add other fields as necessary -->
                 </form>
 
                 <script>

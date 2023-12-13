@@ -1,3 +1,16 @@
+<?php
+session_start();
+
+if (!isset($_SESSION['user_type'])) {
+    header('Location: login.php'); // Redirect to login page
+    exit();
+}
+
+// Prevent caching
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -35,10 +48,32 @@
                 <span class="material-icons-outlined">search</span>
             </div>
             <div class="header-right">
-                <span class="material-icons-outlined">notifications</span>
-                <span class="material-icons-outlined">email</span>
-                <span class="material-icons-outlined">account_circle</span>
+                <span class="material-icons-outlined" id="userIcon">account_circle</span>
+                <div id="userOptions" class="user-options" style="display: none;">
+                    <form>
+                        <button type="button" id="logoutButton">Logout</button>
+                    </form>
+                </div>
             </div>
+            <script>
+                document.getElementById('userIcon').addEventListener('click', function() {
+                    var userOptions = document.getElementById('userOptions');
+                    if (userOptions.style.display === 'none') {
+                        userOptions.style.display = 'block';
+                    } else {
+                        userOptions.style.display = 'none';
+                    }
+                });
+
+                document.getElementById('logoutButton').addEventListener('click', function() {
+                    fetch('logout.php') // Make sure the path to logout.php is correct
+                        .then(response => {
+                            // Redirect to login page or show a logged out message
+                            window.location.href = 'login.php'; // Replace 'login.php' with your login page
+                        })
+                        .catch(error => console.error('Error:', error));
+                });
+            </script>
         </header>
         <!-- End Header -->
 
@@ -95,22 +130,24 @@
                         <span class="material-icons-outlined">poll</span> Reports
                     </a>
                 </li>
-                <hr class="sidebar-divider hr-sidebar-divider">
-                <li class="sidebar-list-item">
-                    <a href="user.php" target="_self">
-                        <span class="material-icons-outlined">manage_accounts</span> Users
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="sms.php" target="_self">
-                        <span class="material-icons-outlined">message</span> SMS
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="cms.php" target="_self">
-                        <span class="material-icons-outlined">settings</span> Settings
-                    </a>
-                </li>
+                <?php if ($_SESSION['user_type'] == 'Administrator') : ?>
+                    <hr class="sidebar-divider hr-sidebar-divider">
+                    <li class="sidebar-list-item">
+                        <a href="user.php" target="_self">
+                            <span class="material-icons-outlined">manage_accounts</span> Users
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="sms.php" target="_self">
+                            <span class="material-icons-outlined">message</span> SMS
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="cms.php" target="_self">
+                            <span class="material-icons-outlined">settings</span> Settings
+                        </a>
+                    </li>
+                <?php endif; ?>
             </ul>
 
         </aside>
@@ -126,7 +163,8 @@
                 <div class="row">
                     <div class="col-md-12">
                         <h3>Records</h3>
-                        <a href="#" class="btn btn-warning pull-right" style="margin-bottom: 10px; position: relative; background-color: #02964C; border-color: #02964C;"><span class="glyphicon glyphicon-plus"></span> Add Items </a>
+                        <a href="inventory_stock_adjustment.php" target="_self" class="btn btn-warning pull-right" style="margin-bottom: 10px; position: relative; background-color: #02964C; border-color: #02964C;"><span class="glyphicon glyphicon-plus"></span> Adjust Stocks </a>
+
                     </div>
                 </div>
                 <div class="row">
@@ -136,34 +174,46 @@
                                 <thead>
                                     <tr>
                                         <th>#</th>
-                                        <th>Product Name</th>
                                         <th>Supplier</th>
+                                        <th>Product Name</th>
                                         <th>Units</th>
+                                        <th>Category</th>
                                         <th>Attributes</th>
                                         <th>Available Stocks</th>
-
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php
                                     require_once 'db_config.php';
-                                    $sql = mysqli_query($conn, "SELECT * FROM inventory_list");
-                                    $count = 1;
-                                    $row = mysqli_num_rows($sql);
-                                    if ($row > 0) {
-                                        while ($row = mysqli_fetch_array($sql)) {
-                                    ?> <tr>
-                                                <td><?php echo $count ?></td>
-                                                <td><?php echo $row['productname']; ?></td>
-                                                <td><?php echo $row['supplier']; ?></td>
-                                                <td><?php echo $row['productunit']; ?></td>
-                                                <td><?php echo $row['productattributes']; ?></td>
-                                                <td><?php echo $row['productquantity']; ?></td>
-                                            </tr>
-                                    <?php
-                                            $count = $count + 1;
+                                    $sql = "SELECT 
+                inventory.*, 
+                product_list.productcategory, 
+                product_list.productattributes 
+            FROM 
+                inventory 
+            JOIN 
+                product_list ON inventory.product_id = product_list.id"; // Corrected JOIN clause
+
+                                    $result = mysqli_query($conn, $sql);
+                                    if (!$result) {
+                                        echo "Error: " . mysqli_error($conn);
+                                    } else {
+                                        $count = 1;
+                                        while ($row = mysqli_fetch_assoc($result)) {
+                                            echo "<tr>
+                    <td>" . $count . "</td>
+                    <td>" . htmlspecialchars($row['supplier']) . "</td>
+                    <td>" . htmlspecialchars($row['productname']) . "</td>
+                    <td>" . htmlspecialchars($row['productunit']) . "</td>
+                    <td>" . htmlspecialchars($row['productcategory']) . "</td>
+                    <td>" . htmlspecialchars($row['productattributes']) . "</td>
+                    <td>" . htmlspecialchars($row['available_stocks']) . "</td>
+                   
+                  </tr>";
+                                            $count++;
                                         }
                                     }
+                                    mysqli_close($conn); // Close the database connection
                                     ?>
                                 </tbody>
                             </table>
