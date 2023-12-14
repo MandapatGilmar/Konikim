@@ -30,9 +30,78 @@ if ($result && mysqli_num_rows($result) > 0) {
     }
 }
 
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    include 'db_config.php';
 
-// Rest of your code...
+    $salescode = mysqli_real_escape_string($conn, $_POST['salescode']);
+    $customername = mysqli_real_escape_string($conn, $_POST['customername']);
+    $soSubtotal = $_POST['sub-total']; // Assuming this is a number
+    $soDiscount = $_POST['discount_perc']; // Discount percentage
+    $soTax = $_POST['tax_perc']; // Tax percentage
+    $productUnitPrices = $_POST['product_total'];
+
+    // Calculating total discount and tax
+    $soDiscountTotal = $soSubtotal * ($soDiscount / 100);
+    $soTaxTotal = ($soSubtotal - $soDiscountTotal) * ($soTax / 100);
+    $soGrandTotal = $soSubtotal - $soDiscountTotal + $soTaxTotal;
+
+    $conn->begin_transaction();
+
+    try {
+        // Insert into sales_orders
+        $stmt = $conn->prepare("INSERT INTO sales_orders (salescode, customername, soSubtotal, soDiscount, soDiscountTotal, soTax, soTaxTotal, soGrandTotal, dateCreated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->bind_param("ssdddddd", $salescode, $customername, $soSubtotal, $soDiscount, $soDiscountTotal, $soTax, $soTaxTotal, $soGrandTotal);
+        $stmt->execute();
+
+        $sales_order_id = $conn->insert_id;
+
+        // Insert into sales_order_items and update inventory
+        $productIds = $_POST['product_id'];
+        $productQuantities = $_POST['product_quantity'];
+        $productPrices = $_POST['product_price'];
+
+        foreach ($productIds as $i => $productId) {
+            $quantity = $productQuantities[$i];
+            $price = $productPrices[$i];
+
+            // Fetch product details from the database
+            $productStmt = $conn->prepare("SELECT productname, productunit FROM inventory WHERE product_id = ?");
+            $productStmt->bind_param("i", $productId);
+            $productStmt->execute();
+            $productResult = $productStmt->get_result();
+            $productDetails = $productResult->fetch_assoc();
+
+            $productName = $productDetails['productname'];
+            $productUnit = $productDetails['productunit'];
+
+            // Insert into sales_order_items
+            $itemStmt = $conn->prepare("INSERT INTO sales_order_items (sales_order_id, product_id, productname, productunit, productprice, productunitprice, productquantity) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $itemStmt->bind_param("iissddi", $sales_order_id, $productId, $productName, $productUnit, $price, $productUnitPrices[$i], $quantity);
+            $itemStmt->execute();
+
+            // Update inventory
+            $updateInventory = $conn->prepare("UPDATE inventory SET available_stocks = available_stocks - ? WHERE product_id = ?");
+            $updateInventory->bind_param("ii", $quantity, $productId);
+            $updateInventory->execute();
+        }
+
+        // Commit transaction
+        $conn->commit();
+        header("Location: sales_orders.php"); // Redirect on success
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        $conn->rollback();
+        echo "Error: " . $e->getMessage();
+        exit;
+    }
+
+    $conn->close();
+}
 ?>
+
+
+
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -187,7 +256,7 @@ if ($result && mysqli_num_rows($result) > 0) {
                         <h3>Add Purchase Order</h3>
                     </div>
                 </div>
-                <form action="<?php echo ($_SERVER["PHP_SELF"]) ?>" method="POST">
+                <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST">
                     <div class="row">
                         <div class="col-md-6">
                             <label for="salescode">Sales Order Code</label>
@@ -302,7 +371,7 @@ if ($result && mysqli_num_rows($result) > 0) {
 
                     <div class="row" style="margin-top: 1%">
                         <div class="col-md-6">
-                            <button type="text" name="submit" class="btn btn-primary" style="background-color: #02964C; border-color: #02964C;">Submit</button>
+                            <button type="submit" name="submit" class="btn btn-primary" style="background-color: #02964C; border-color: #02964C;">Submit</button>
                             <a href="purchase_orders.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;"> View Purchase Order List</a>
                         </div>
                     </div>

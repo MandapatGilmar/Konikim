@@ -163,8 +163,9 @@ header("Pragma: no-cache");
                 <div class="row">
                     <div class="col-md-12">
                         <h3>Records</h3>
-                        <a href="inventory_stock_adjustment.php" target="_self" class="btn btn-warning pull-right" style="margin-bottom: 10px; position: relative; background-color: #02964C; border-color: #02964C;"><span class="glyphicon glyphicon-plus"></span> Adjust Stocks </a>
+                        <a href="inventory_history.php" target="_self" class="btn btn-warning pull-right" style="margin-bottom: 10px; margin-left:10px; position: relative; background-color: #02964C; border-color: #02964C;"><span class="glyphicon glyphicon-plus"></span> Inventory History </a>
 
+                        <a href="inventory_stock_adjustment.php" target="_self" class="btn btn-warning pull-right" style="margin-bottom: 10px; position: relative; background-color: #02964C; border-color: #02964C;"><span class="glyphicon glyphicon-plus"></span> Adjust Stocks </a>
                     </div>
                 </div>
                 <div class="row">

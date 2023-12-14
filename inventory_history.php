@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <?php
 session_start();
 
@@ -12,12 +11,13 @@ header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 ?>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>Sales Order</title>
+    <title>Inventory</title>
 
     <!-- Montserrat Font -->
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -156,14 +156,14 @@ header("Pragma: no-cache");
         <!-- Main -->
         <main class="main-container">
             <div class="main-title">
-                <p class="font-weight-bold">SALES ORDERS</p>
+                <p class="font-weight-bold">INVENTORY</p>
             </div>
 
             <div class="container" style="font-family: 'Montserrat', sans-serif !important;">
                 <div class="row">
                     <div class="col-md-12">
-                        <h3>Records</h3>
-                        <a href="sales_order_add.php" class="btn btn-warning pull-right" style="margin-bottom: 10px; position: relative; background-color: #02964C; border-color: #02964C;"><span class="glyphicon glyphicon-plus"></span> Create New </a>
+                        <h3>History</h3>
+
                     </div>
                 </div>
                 <div class="row">
@@ -173,45 +173,65 @@ header("Pragma: no-cache");
                                 <thead>
                                     <tr>
                                         <th>#</th>
-                                        <th>Sale Code</th>
-                                        <th>Client</th>
-                                        <th>Items</th>
-                                        <th>Amount</th>
-                                        <th>Date Creation</th>
-                                        <th>Action</th>
-
+                                        <th>Supplier</th>
+                                        <th>Product Name</th>
+                                        <th>Units</th>
+                                        <th>Category</th>
+                                        <th>Attributes</th>
+                                        <th>Adjusted Quantity</th>
+                                        <th>Reason</th>
+                                        <th>Adjusted By</th>
+                                        <th>Adjusted Date</th>
 
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php
                                     require_once 'db_config.php';
+                                    $sql = "SELECT 
+    adjustment_log.adjustment_quantity, 
+    adjustment_log.reason, 
+    adjustment_log.adjusted_by, 
+    adjustment_log.adjustment_date,
+    inventory.supplier,  
+    product_list.productname, 
+    product_list.productunit,
+    product_list.productcategory,
+    product_list.productattributes
+FROM 
+    adjustment_log
+JOIN 
+    inventory ON adjustment_log.product_id = inventory.product_id
+JOIN 
+    product_list ON inventory.product_id = product_list.id";
 
-                                    $sql = mysqli_query($conn, "SELECT so.*, COUNT(soi.id) AS itemCount FROM sales_orders so LEFT JOIN sales_order_items soi ON so.id = soi.sales_order_id GROUP BY so.id");
-                                    $count = 1;
-                                    $row = mysqli_num_rows($sql);
-                                    if ($row > 0) {
-                                        while ($row = mysqli_fetch_array($sql)) {
 
-                                    ?> <tr>
-                                                <td><?php echo $count ?></td>
-                                                <td><?php echo $row['salescode']; ?></td>
-                                                <td><?php echo $row['customername']; ?></td>
-                                                <td><?php echo $row['itemCount']; ?></td>
-                                                <td><?php echo $row['soGrandTotal']; ?></td>
-                                                <td><?php echo $row['dateCreated']; ?></td>
-                                                <td>
-                                                    <div style="display: flex; align-items: center;">
-                                                        <a href="#" class="btn btn-info btn-sm" style="margin-right: 8px; position: relative;"><span class="glyphicon glyphicon-search"></span> View </a>
-                                                        <a href="#" class="btn btn-warning btn-sm" style="margin-right: 8px; position: relative;"><span class="glyphicon glyphicon-pencil"></span> Edit </a>
-                                                        <a href="#" onClick="return confirm('Do you really want to remove this record?')" class="btn btn-danger btn-sm" style="background-color: #cc3c43; border-color: #cc3c43;"><span class="glyphicon glyphicon-trash"></span> Delete </a>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                    <?php
-                                            $count = $count + 1;
+                                    $result = mysqli_query($conn, $sql);
+                                    if (!$result) {
+                                        echo "Error: " . mysqli_error($conn);
+                                    } else {
+                                        $count = 1;
+                                        while ($row = mysqli_fetch_assoc($result)) {
+                                            echo "<tr>
+                    <td>" . $count . "</td>
+                    <td>" . htmlspecialchars($row['supplier']) . "</td>
+                    <td>" . htmlspecialchars($row['productname']) . "</td>
+                    <td>" . htmlspecialchars($row['productunit']) . "</td>
+                    <td>" . htmlspecialchars($row['productcategory']) . "</td>
+                    <td>" . htmlspecialchars($row['productattributes']) . "</td>
+                    <td>" . htmlspecialchars($row['adjustment_quantity']) . "</td>
+                    <td>" . htmlspecialchars($row['reason']) . "</td>
+                    <td>" . htmlspecialchars($row['adjusted_by']) . "</td>
+                    <td>" . htmlspecialchars($row['adjustment_date']) . "</td>
+
+
+
+                   
+                  </tr>";
+                                            $count++;
                                         }
                                     }
+                                    mysqli_close($conn); // Close the database connection
                                     ?>
                                 </tbody>
                             </table>
@@ -219,6 +239,7 @@ header("Pragma: no-cache");
                     </div>
                 </div>
             </div>
+
 
         </main>
         <!-- End Main -->
