@@ -5,6 +5,13 @@ if (!isset($_SESSION['user_type'])) {
     header('Location: login.php'); // Redirect to login page
     exit();
 }
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['firstname']) && isset($_SESSION['user_type'])) {
+    $userFirstName = $_SESSION['firstname']; // Set user's first name from session
+    $userType = $_SESSION['user_type']; // Set user's type from session
+} else {
+    $userFirstName = 'Unknown'; // Set to 'Unknown' if not logged in or firstname not set
+    $userType = 'Unknown'; // Set to 'Unknown' if not logged in or user_type not set
+}
 
 // Prevent caching
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -55,8 +62,8 @@ if (isset($_GET['delid'])) {
             <div class="menu-icon" onclick="openSidebar()">
                 <span class="material-icons-outlined">menu</span>
             </div>
-            <div class="header-left">
-                <span class="material-icons-outlined">search</span>
+            <div class="header-right" style="margin-left: 900px;">
+                <h4><?php echo htmlspecialchars($userFirstName); ?> - <?php echo htmlspecialchars($userType); ?></h4>
             </div>
             <div class="header-right">
                 <span class="material-icons-outlined" id="userIcon">account_circle</span>
@@ -172,13 +179,16 @@ if (isset($_GET['delid'])) {
             <div class="container" style="font-family: 'Montserrat', sans-serif !important;">
                 <div class="row">
                     <div class="col-md-12">
-                        <h3>Records</h3>
+                        <h3>RECORDS</h3>
 
                         <a href="product_add.php" target="_self" class="btn btn-warning pull-right" style="margin-bottom: 10px; position: relative; background-color: #02964C; border-color: #02964C;"><span class="glyphicon glyphicon-plus"></span> Add Product </a>
 
                     </div>
                 </div>
                 <div class="row">
+                    <div class="col-md-2" style="margin-left: 965px; margin-bottom: 10px;">
+                        <input type="text" id="tableSearch" class="form-control" placeholder="Search Table...">
+                    </div>
                     <div class="col-md-12">
                         <div class="table-responsive">
                             <table class="table table-bordered table-striped">
@@ -277,6 +287,16 @@ if (isset($_GET['delid'])) {
                         $('#productDetailsModal .modal-body').html(response);
                         $('#productDetailsModal').modal('show');
                     }
+                });
+            });
+        });
+    </script>
+    <script>
+        $(document).ready(function() {
+            $("#tableSearch").on("keyup", function() {
+                var value = $(this).val().toLowerCase();
+                $(".table tbody tr").filter(function() {
+                    $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
                 });
             });
         });

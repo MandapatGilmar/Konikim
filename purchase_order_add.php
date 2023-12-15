@@ -5,6 +5,13 @@ if (!isset($_SESSION['user_type'])) {
     header('Location: login.php'); // Redirect to login page
     exit();
 }
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['firstname']) && isset($_SESSION['user_type'])) {
+    $userFirstName = $_SESSION['firstname']; // Set user's first name from session
+    $userType = $_SESSION['user_type']; // Set user's type from session
+} else {
+    $userFirstName = 'Unknown'; // Set to 'Unknown' if not logged in or firstname not set
+    $userType = 'Unknown'; // Set to 'Unknown' if not logged in or user_type not set
+}
 
 // Prevent caching
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -136,8 +143,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="menu-icon" onclick="openSidebar()">
                 <span class="material-icons-outlined">menu</span>
             </div>
-            <div class="header-left">
-                <span class="material-icons-outlined">search</span>
+            <div class="header-right" style="margin-left: 900px;">
+                <h4><?php echo htmlspecialchars($userFirstName); ?> - <?php echo htmlspecialchars($userType); ?></h4>
             </div>
             <div class="header-right">
                 <span class="material-icons-outlined" id="userIcon">account_circle</span>
@@ -438,16 +445,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             const addItemButton = document.querySelector("button[name='add']");
             const tableBody = document.getElementById('list').getElementsByTagName('tbody')[0];
             const subtotalDisplay = document.querySelector('.sub-total');
+            const supplierDropdown = document.getElementById('supplierDropdown');
             let subtotal = 0;
 
             addItemButton.addEventListener('click', function(event) {
                 event.preventDefault();
 
+                document.getElementById('supplierValue').value = supplierDropdown.value;
                 const rowNumber = tableBody.rows.length + 1;
                 const quantity = parseInt(document.querySelector("input[name='productquantity']").value) || 0;
                 const unit = document.getElementById('productunit').value;
                 const selectedItem = document.getElementById('itemDropdown').selectedOptions[0];
                 const itemName = selectedItem.text;
+                const supplier = document.getElementById('supplierDropdown').value;
                 const attributes = document.getElementById('productattributes').value;
                 const price = parseFloat(document.getElementById('productprice').value) || 0;
                 const total = quantity * price;
@@ -457,6 +467,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 const productName = productData.name;
                 const productUnit = productData.unit;
                 const productAttributes = productData.attributes;
+
+                supplierDropdown.disabled = true;
 
                 const row = tableBody.insertRow();
                 row.innerHTML = `
@@ -471,6 +483,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <input type="hidden" name="product_id[]" value="${selectedItem.value}">
             <input type="hidden" name="product_quantity[]" value="${quantity}">
             <input type="hidden" name="product_price[]" value="${price}">
+            <input type="hidden" name="product_supplier[]" value="${supplier}">
             <input type="hidden" name="product_total[]" value="${total}">
             <input type="hidden" name="product_name[]" value="${productName}">
             <input type="hidden" name="product_unit[]" value="${productUnit}">
@@ -489,6 +502,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 recalculateSubtotal(); // Recalculate the subtotal after deletion
                 updateFooter(); // Update the table footer
                 updateRowNumbers(); // Update row numbers after deletion
+
+                if (tableBody.rows.length === 0) {
+                    supplierDropdown.disabled = false;
+                }
             };
 
 

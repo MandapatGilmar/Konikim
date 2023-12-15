@@ -5,6 +5,13 @@ if (!isset($_SESSION['user_type'])) {
     header('Location: login.php'); // Redirect to login page
     exit();
 }
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['firstname']) && isset($_SESSION['user_type'])) {
+    $userFirstName = $_SESSION['firstname']; // Set user's first name from session
+    $userType = $_SESSION['user_type']; // Set user's type from session
+} else {
+    $userFirstName = 'Unknown'; // Set to 'Unknown' if not logged in or firstname not set
+    $userType = 'Unknown'; // Set to 'Unknown' if not logged in or user_type not set
+}
 
 // Prevent caching
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -26,6 +33,13 @@ $purchaseCount = 0;
 
 if ($row = mysqli_fetch_assoc($purchasequery)) {
     $purchaseCount = $row['purchaseCount'];
+}
+
+$salesquery = mysqli_query($conn, "SELECT COUNT(*) as salesCount FROM sales_orders");
+$salesCount = 0;
+
+if ($row = mysqli_fetch_assoc($salesquery)) {
+    $salesCount = $row['salesCount'];
 }
 ?>
 <!DOCTYPE html>
@@ -59,11 +73,8 @@ if ($row = mysqli_fetch_assoc($purchasequery)) {
 
         <!-- Header -->
         <header class="header">
-            <div class="menu-icon" onclick="openSidebar()">
-                <span class="material-icons-outlined">menu</span>
-            </div>
-            <div class="header-left">
-                <span class="material-icons-outlined">search</span>
+            <div class="header-right" style="margin-left: 900px;">
+                <h4><?php echo htmlspecialchars($userFirstName); ?> - <?php echo htmlspecialchars($userType); ?></h4>
             </div>
             <div class="header-right">
                 <span class="material-icons-outlined" id="userIcon">account_circle</span>
@@ -201,7 +212,7 @@ if ($row = mysqli_fetch_assoc($purchasequery)) {
                         <p class="text-primary">SALES ORDERS</p>
                         <span class="material-icons-outlined text-green">shopping_cart</span>
                     </div>
-                    <span class="text-primary font-weight-bold">79</span>
+                    <span class="text-primary font-weight-bold"><?php echo $salesCount; ?></span>
                 </div>
 
                 <div class="card">

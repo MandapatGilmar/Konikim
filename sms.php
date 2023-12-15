@@ -7,6 +7,14 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] != 'Administrator')
     header("Location: unauthorized.php"); // Redirect to an unauthorized access page
     exit();
 }
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['firstname']) && isset($_SESSION['user_type'])) {
+    $userFirstName = $_SESSION['firstname']; // Set user's first name from session
+    $userType = $_SESSION['user_type']; // Set user's type from session
+} else {
+    $userFirstName = 'Unknown'; // Set to 'Unknown' if not logged in or firstname not set
+    $userType = 'Unknown'; // Set to 'Unknown' if not logged in or user_type not set
+}
+include_once('db_config.php');
 $smsSent = false; // Set to true if SMS has been sent successfully
 // Check if the form has been submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -80,13 +88,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="menu-icon" onclick="openSidebar()">
                 <span class="material-icons-outlined">menu</span>
             </div>
-            <div class="header-left">
-                <span class="material-icons-outlined">search</span>
+            <div class="header-right" style="margin-left: 900px;">
+                <h4><?php echo htmlspecialchars($userFirstName); ?> - <?php echo htmlspecialchars($userType); ?></h4>
             </div>
             <div class="header-right">
-                <span class="material-icons-outlined">notifications</span>
-                <span class="material-icons-outlined">email</span>
-                <span class="material-icons-outlined">account_circle</span>
+                <span class="material-icons-outlined" id="userIcon">account_circle</span>
+                <div id="userOptions" class="user-options" style="display: none;">
+                    <form>
+                        <button type="button" id="logoutButton">Logout</button>
+                    </form>
+                </div>
             </div>
         </header>
         <!-- End Header -->

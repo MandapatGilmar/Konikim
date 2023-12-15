@@ -6,6 +6,13 @@ if (!isset($_SESSION['user_type'])) {
     header('Location: login.php'); // Redirect to login page
     exit();
 }
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['firstname']) && isset($_SESSION['user_type'])) {
+    $userFirstName = $_SESSION['firstname']; // Set user's first name from session
+    $userType = $_SESSION['user_type']; // Set user's type from session
+} else {
+    $userFirstName = 'Unknown'; // Set to 'Unknown' if not logged in or firstname not set
+    $userType = 'Unknown'; // Set to 'Unknown' if not logged in or user_type not set
+}
 
 // Prevent caching
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -44,8 +51,8 @@ header("Pragma: no-cache");
             <div class="menu-icon" onclick="openSidebar()">
                 <span class="material-icons-outlined">menu</span>
             </div>
-            <div class="header-left">
-                <span class="material-icons-outlined">search</span>
+            <div class="header-right" style="margin-left: 900px;">
+                <h4><?php echo htmlspecialchars($userFirstName); ?> - <?php echo htmlspecialchars($userType); ?></h4>
             </div>
             <div class="header-right">
                 <span class="material-icons-outlined" id="userIcon">account_circle</span>
@@ -161,11 +168,14 @@ header("Pragma: no-cache");
             <div class="container" style="font-family: 'Montserrat', sans-serif !important;">
                 <div class="row">
                     <div class="col-md-12">
-                        <h3>Records</h3>
+                        <h3>RECORDS</h3>
                         <a href="return_add.php" class="btn btn-warning pull-right" style="margin-bottom: 10px; position: relative; background-color: #02964C; border-color: #02964C;"><span class="glyphicon glyphicon-plus"></span> Create New </a>
                     </div>
                 </div>
                 <div class="row">
+                    <div class="col-md-2" style="margin-left: 965px; margin-bottom: 10px;">
+                        <input type="text" id="tableSearch" class="form-control" placeholder="Search Table...">
+                    </div>
                     <div class="col-md-12">
                         <div class="table-responsive">
                             <table class="table table-bordered table-striped">
@@ -228,6 +238,16 @@ header("Pragma: no-cache");
     <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.3/apexcharts.min.js"></script>
     <!-- Custom JS -->
     <script src="js\scipt.js"></script>
+    <script>
+        $(document).ready(function() {
+            $("#tableSearch").on("keyup", function() {
+                var value = $(this).val().toLowerCase();
+                $(".table tbody tr").filter(function() {
+                    $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+                });
+            });
+        });
+    </script>
 </body>
 
 </html>

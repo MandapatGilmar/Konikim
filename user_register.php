@@ -1,44 +1,92 @@
 <?php
 session_start();
 
+$firstnameErr = $lastnameErr = $usernameErr = $passwordErr = "";
+$firstname = $lastname = $username = "";
+
 // Check if the user is logged in and if the user is not an administrator
 if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] != 'Administrator') {
-    // Redirect to a different page or show an error
     header("Location: unauthorized.php"); // Redirect to an unauthorized access page
     exit();
 }
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['firstname']) && isset($_SESSION['user_type'])) {
+    $userFirstName = $_SESSION['firstname']; // Set user's first name from session
+    $userType = $_SESSION['user_type']; // Set user's type from session
+} else {
+    $userFirstName = 'Unknown'; // Set to 'Unknown' if not logged in or firstname not set
+    $userType = 'Unknown'; // Set to 'Unknown' if not logged in or user_type not set
+}
+
 // Connect to the database
 require_once 'db_config.php'; // Assuming db_config.php contains the database connection details
 
 // Check if the form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Collect and sanitize input data
     $firstname = mysqli_real_escape_string($conn, $_POST['firstname']);
     $lastname = mysqli_real_escape_string($conn, $_POST['lastname']);
     $username = mysqli_real_escape_string($conn, $_POST['username']);
-    // Hash the password securely
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+    $password = $_POST['password'];
     $userType = mysqli_real_escape_string($conn, $_POST['user_level']);
 
-    // Prepare SQL statement to prevent SQL injection
-    $stmt = $conn->prepare("INSERT INTO users (firstname, lastname, username, password, user_type) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssss", $firstname, $lastname, $username, $password, $userType);
+    // Validation
+    $valid = true;
 
-    // Execute the statement and check for success
-    if ($stmt->execute()) {
-        echo "New user created successfully";
-        // Redirect to user list page
-        echo "<script>window.location.href='user.php'</script>";
-    } else {
-        // Print error message
-        echo "Error: " . $stmt->error;
+    // First Name and Last Name validation: only letters
+    if (!preg_match("/^[a-zA-Z ]*$/", $firstname)) {
+        $firstnameErr = "Only letters and white space allowed";
+        $valid = false;
     }
 
-    // Close statement and connection
-    $stmt->close();
+    if (!preg_match("/^[a-zA-Z ]*$/", $lastname)) {
+        $lastnameErr = "Only letters and white space allowed";
+        $valid = false;
+    }
+
+    // Username validation
+    if (!preg_match("/^[a-zA-Z0-9.]{1,}[^\W_]$/", $username)) {
+        $usernameErr = "Invalid username format";
+        $valid = false;
+    } else {
+        // Check if username already exists
+        $userCheck = $conn->prepare("SELECT username FROM users WHERE username = ?");
+        $userCheck->bind_param("s", $username);
+        $userCheck->execute();
+        $result = $userCheck->get_result();
+        if ($result->num_rows > 0) {
+            $usernameErr = "Username already exists";
+            $valid = false;
+        }
+        $userCheck->close();
+    }
+
+    // Password validation
+    if (!preg_match("/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/", $password)) {
+        $passwordErr = "Password does not meet requirements";
+        $valid = false;
+    }
+
+    // Insert into database
+    if ($valid) {
+        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+
+        $stmt = $conn->prepare("INSERT INTO users (firstname, lastname, username, password, user_type) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssss", $firstname, $lastname, $username, $hashed_password, $userType);
+
+        if ($stmt->execute()) {
+            echo "<script>alert('New user created successfully');</script>";
+            echo "<script>window.location.href='user.php'</script>";
+        } else {
+            echo "Error: " . $stmt->error;
+        }
+
+        $stmt->close();
+    }
     $conn->close();
 }
 ?>
+
+
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -63,6 +111,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css\dashboard.css">
+    <style>
+        .error {
+            color: red;
+            font-size: 12px;
+        }
+    </style>
 </head>
 
 <body>
@@ -73,8 +127,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="menu-icon" onclick="openSidebar()">
                 <span class="material-icons-outlined">menu</span>
             </div>
-            <div class="header-left">
-                <span class="material-icons-outlined">search</span>
+            <div class="header-right" style="margin-left: 900px;">
+                <h4><?php echo htmlspecialchars($userFirstName); ?> - <?php echo htmlspecialchars($userType); ?></h4>
             </div>
             <div class="header-right">
                 <span class="material-icons-outlined" id="userIcon">account_circle</span>
@@ -199,18 +253,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <div class="col-md-6">
                             <label for="firstname">First Name</label>
                             <input type="text" class="form-control" name="firstname" placeholder="Enter First Name" required>
+                            <span class="error"><?php echo $firstnameErr; ?></span>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
                             <label for="lastname">Last Name</label>
                             <input type="text" class="form-control" name="lastname" placeholder="Enter Last Name" required>
+                            <span class="error"><?php echo $lastnameErr; ?></span>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
                             <label for="username">Username</label>
                             <input type="text" class="form-control" name="username" placeholder="Enter Username" required>
+                            <span class="error"><?php echo $usernameErr; ?></span>
                         </div>
                     </div>
                     <div class="row">
@@ -218,6 +275,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <label for="password">Password</label>
                             <div class="input-group">
                                 <input type="password" class="form-control" id="password" name="password" placeholder="Enter Password" required>
+                                <span class="error"><?php echo $passwordErr; ?></span>
                                 <span class="input-group-btn">
                                     <button id="togglePassword" class="btn btn-default" type="button">
                                         <span class="glyphicon glyphicon-eye-open"></span>

@@ -7,11 +7,14 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] != 'Administrator')
     header("Location: unauthorized.php"); // Redirect to an unauthorized access page
     exit();
 }
-if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['firstname'])) {
-    $userFirstName = $_SESSION['firstname'];
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['firstname']) && isset($_SESSION['user_type'])) {
+    $userFirstName = $_SESSION['firstname']; // Set user's first name from session
+    $userType = $_SESSION['user_type']; // Set user's type from session
 } else {
-    $userFirstName = 'Unknown'; // Or handle the case where the user is not logged in
+    $userFirstName = 'Unknown'; // Set to 'Unknown' if not logged in or firstname not set
+    $userType = 'Unknown'; // Set to 'Unknown' if not logged in or user_type not set
 }
+
 
 require_once 'db_config.php'; // Database configuration file
 
@@ -94,8 +97,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="menu-icon" onclick="openSidebar()">
                 <span class="material-icons-outlined">menu</span>
             </div>
-            <div class="header-left">
-                <span class="material-icons-outlined">search</span>
+            <div class="header-right" style="margin-left: 900px;">
+                <h4><?php echo htmlspecialchars($userFirstName); ?> - <?php echo htmlspecialchars($userType); ?></h4>
             </div>
             <div class="header-right">
                 <span class="material-icons-outlined" id="userIcon">account_circle</span>
@@ -287,7 +290,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <div class="row" style="margin-top: 1%">
                         <div class="col-md-6">
                             <button type="submit" class="btn btn-primary" style="background-color: #02964C; border-color: #02964C;">Submit</button>
-                            <a href="user.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;">View Users List</a>
+                            <a href="inventory.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;">View Inventory List</a>
                         </div>
                     </div>
                 </form>
@@ -343,6 +346,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             document.getElementById("stock_after").value = stockAfter;
         });
     </script>
+
 </body>
 
 </html>

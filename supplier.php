@@ -5,24 +5,53 @@ if (!isset($_SESSION['user_type'])) {
     header('Location: login.php'); // Redirect to login page
     exit();
 }
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['firstname']) && isset($_SESSION['user_type'])) {
+    $userFirstName = $_SESSION['firstname']; // Set user's first name from session
+    $userType = $_SESSION['user_type']; // Set user's type from session
+} else {
+    $userFirstName = 'Unknown'; // Set to 'Unknown' if not logged in or firstname not set
+    $userType = 'Unknown'; // Set to 'Unknown' if not logged in or user_type not set
+}
 
 // Prevent caching
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
+
 // Connect to the database
-// Include your database configuration here
-include 'db_config.php';
+require_once 'db_config.php';
 
+// Handle deletion if the 'delid' is set
 if (isset($_GET['delid'])) {
-
     $id = intval($_GET['delid']);
     $sql = mysqli_query($conn, "DELETE FROM supplier_list WHERE id='$id'");
     echo "<script>alert('Supplier deleted successfully');</script>";
     echo "<script>window.location.href='supplier.php'</script>";
 }
 
+// Pagination setup
+$records_per_page = 10; // Set the number of records per page
+$page = '';
+
+if (isset($_GET["page"])) {
+    $page = intval($_GET["page"]);
+} else {
+    $page = 1;
+}
+
+$start_from = ($page - 1) * $records_per_page;
+
+// Fetch the relevant records for the current page
+$sql = "SELECT * FROM supplier_list LIMIT $start_from, $records_per_page";
+$result = mysqli_query($conn, $sql);
+
+// Calculate total number of pages required
+$total_pages_sql = "SELECT COUNT(*) FROM supplier_list";
+$page_result = mysqli_query($conn, $total_pages_sql);
+$total_rows = mysqli_fetch_array($page_result)[0];
+$total_pages = ceil($total_rows / $records_per_page);
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -47,6 +76,28 @@ if (isset($_GET['delid'])) {
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css\dashboard.css">
+    <style>
+        .pagination a {
+            color: black;
+            float: left;
+            padding: 8px 16px;
+            text-decoration: none;
+            transition: background-color .3s;
+            border: 1px solid #ddd;
+            margin: 0 4px;
+        }
+
+        .pagination a.active {
+            background-color: #4CAF50;
+            color: white;
+            border: 1px solid #4CAF50;
+        }
+
+        .pagination a:hover:not(.active) {
+            background-color: #ddd;
+        }
+    </style>
+
 </head>
 
 <body>
@@ -57,8 +108,8 @@ if (isset($_GET['delid'])) {
             <div class="menu-icon" onclick="openSidebar()">
                 <span class="material-icons-outlined">menu</span>
             </div>
-            <div class="header-left">
-                <span class="material-icons-outlined">search</span>
+            <div class="header-right" style="margin-left: 900px;">
+                <h4><?php echo htmlspecialchars($userFirstName); ?> - <?php echo htmlspecialchars($userType); ?></h4>
             </div>
             <div class="header-right">
                 <span class="material-icons-outlined" id="userIcon">account_circle</span>
@@ -175,11 +226,27 @@ if (isset($_GET['delid'])) {
             <div class="container" style="font-family: 'Montserrat', sans-serif !important;">
                 <div class="row">
                     <div class="col-md-12">
-                        <h3>Suppliers</h3>
+                        <h3>RECORDS</h3>
                         <a href="supplier_add.php" class="btn btn-warning pull-right" style="margin-bottom: 10px; position: relative; background-color: #02964C; border-color: #02964C;"><span class="glyphicon glyphicon-plus"></span> Add Supplier </a>
                     </div>
                 </div>
                 <div class="row">
+                    <div class="col-md-3" style="margin-left: 870px; margin-bottom: 10px;">
+                        <input type="text" id="tableSearch" class="form-control" placeholder="Search Table...">
+                        <label for="itemDropdown">Supplier's Products Filter:</label>
+                        <select id="itemDropdown" class="form-control" name="itemDropdown" onchange="filterSuppliers()">
+                            <option value="">Select a Product</option>
+                            <?php
+                            require_once('db_config.php');
+                            $query = "SELECT DISTINCT productname FROM product_list ORDER BY productname";
+                            $result = mysqli_query($conn, $query);
+                            while ($row = mysqli_fetch_assoc($result)) {
+                                echo "<option value='" . $row['productname'] . "'>" . $row['productname'] . "</option>";
+                            }
+
+                            ?>
+                        </select>
+                    </div>
                     <div class="col-md-12">
                         <div class="table-responsive">
                             <table class="table table-bordered table-striped">
@@ -195,7 +262,7 @@ if (isset($_GET['delid'])) {
                                         <th>Action</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody class="supplier-table-body">
                                     <?php
                                     require_once 'db_config.php';
                                     $sql = mysqli_query($conn, "SELECT * FROM supplier_list");
@@ -227,6 +294,21 @@ if (isset($_GET['delid'])) {
                                 </tbody>
                             </table>
                         </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="pagination" style="margin-left: 965px;">
+                                    <?php
+                                    $page_query = "SELECT COUNT(*) FROM supplier_list";
+                                    $page_result = mysqli_query($conn, $page_query);
+                                    $total_records = mysqli_fetch_array($page_result)[0];
+                                    $total_pages = ceil($total_records / $records_per_page);
+                                    for ($i = 1; $i <= $total_pages; $i++) {
+                                        echo "<a href='supplier.php?page=" . $i . "'>" . $i . "</a> ";
+                                    }
+                                    ?>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -237,6 +319,37 @@ if (isset($_GET['delid'])) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.3/apexcharts.min.js"></script>
     <!-- Custom JS -->
     <script src="js\scipt.js"></script>
+    <script>
+        $(document).ready(function() {
+            $("#tableSearch").on("keyup", function() {
+                var value = $(this).val().toLowerCase();
+                $(".table tbody tr").filter(function() {
+                    $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+                });
+            });
+        });
+    </script>
+    <script>
+        function filterSuppliers() {
+            var selectedProduct = document.getElementById('itemDropdown').value;
+            if (!selectedProduct) {
+                // Optionally, reload the original supplier list or handle empty selection
+                return;
+            }
+
+            // AJAX request to fetch suppliers
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "supplier_gets.php?product=" + encodeURIComponent(selectedProduct), true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    // Update the supplier table with the response
+                    document.querySelector('.supplier-table-body').innerHTML = xhr.responseText;
+                }
+            };
+            xhr.send();
+        }
+    </script>
+
 </body>
 
 </html>

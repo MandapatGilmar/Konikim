@@ -5,6 +5,13 @@ if (!isset($_SESSION['user_type'])) {
     header('Location: login.php'); // Redirect to login page
     exit();
 }
+if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] == true && isset($_SESSION['firstname']) && isset($_SESSION['user_type'])) {
+    $userFirstName = $_SESSION['firstname']; // Set user's first name from session
+    $userType = $_SESSION['user_type']; // Set user's type from session
+} else {
+    $userFirstName = 'Unknown'; // Set to 'Unknown' if not logged in or firstname not set
+    $userType = 'Unknown'; // Set to 'Unknown' if not logged in or user_type not set
+}
 
 // Prevent caching
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -132,8 +139,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="menu-icon" onclick="openSidebar()">
                 <span class="material-icons-outlined">menu</span>
             </div>
-            <div class="header-left">
-                <span class="material-icons-outlined">search</span>
+            <div class="header-right" style="margin-left: 900px;">
+                <h4><?php echo htmlspecialchars($userFirstName); ?> - <?php echo htmlspecialchars($userType); ?></h4>
             </div>
             <div class="header-right">
                 <span class="material-icons-outlined" id="userIcon">account_circle</span>
@@ -243,19 +250,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <!-- Main -->
         <main class="main-container">
             <div class="main-title">
-                <p class="font-weight-bold">PRODUCT LIST</p>
+                <p class="font-weight-bold">RETURN ORDERS</p>
             </div>
 
             <div class="container">
                 <div class="row">
                     <div class="col-md-6">
-                        <h3>Add Purchase Order</h3>
+                        <h3>Add Return Order</h3>
                     </div>
                 </div>
                 <form action="<?php echo ($_SERVER["PHP_SELF"]) ?>" method="POST">
                     <div class="row">
                         <div class="col-md-6">
-                            <label for="productcode">Purchase Order Code</label>
+                            <label for="productcode">Return Order Code</label>
                             <input type="text" class="form-control" name="returncode" value="<?php echo $returncode; ?>" readonly required>
                         </div>
                         <div class="col-md-3">
@@ -356,7 +363,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <div class="row" style="margin-top: 1%">
                         <div class="col-md-6">
                             <button type="text" name="submit" class="btn btn-primary" style="background-color: #02964C; border-color: #02964C;">Submit</button>
-                            <a href="purchase_orders.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;"> View Purchase Order List</a>
+                            <a href="return_list.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;"> View Return Order List</a>
                         </div>
                     </div>
             </div>
