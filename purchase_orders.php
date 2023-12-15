@@ -186,11 +186,7 @@ if (isset($_GET['delid'])) {
                             <span class="material-icons-outlined">message</span> SMS
                         </a>
                     </li>
-                    <li class="sidebar-list-item">
-                        <a href="cms.php" target="_self">
-                            <span class="material-icons-outlined">settings</span> Settings
-                        </a>
-                    </li>
+
                 <?php endif; ?>
             </ul>
 
@@ -260,7 +256,7 @@ if (isset($_GET['delid'])) {
                                                     <div style="display: flex; align-items: center;">
                                                         <a href="#" class="btn btn-info btn-sm view-purchase-order" data-purchaseid="<?php echo htmlentities($row['id']); ?>" style="margin-right: 8px;"><span class="glyphicon glyphicon-search"></span> View </a>
                                                         <?php if (!$isReceived) : ?>
-                                                            <a href="received_items.php?receivedid=<?php echo htmlentities($row['id']); ?>" class="btn btn-warning btn-sm" style="margin-right: 8px;"><span class="glyphicon glyphicon-plus"></span> Received </a>
+                                                            <a href="received_items.php?receivedid=<?php echo htmlentities($row['id']); ?>" class="btn btn-warning btn-sm" style="margin-right: 8px; background-color: #02964C; border-color: #02964C;"><span class=" glyphicon glyphicon-ok"></span> Received </a>
                                                             <a href="purchase_order_edit.php?editid=<?php echo htmlentities($row['id']); ?>" class="btn btn-warning btn-sm" style="margin-right: 8px;"><span class="glyphicon glyphicon-pencil"></span> Edit </a>
                                                             <a href="purchase_orders.php?delid=<?php echo htmlentities($row['id']); ?>" onClick="return confirm('Do you really want to remove this record?')" class="btn btn-danger btn-sm" style="background-color: #cc3c43; border-color: #cc3c43;"><span class="glyphicon glyphicon-trash"></span> Delete </a>
                                                         <?php endif; ?>

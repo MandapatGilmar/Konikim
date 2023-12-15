@@ -194,22 +194,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update'])) {
                         <span class="material-icons-outlined">poll</span> Reports
                     </a>
                 </li>
-                <hr class="sidebar-divider hr-sidebar-divider">
-                <li class="sidebar-list-item">
-                    <a href="user.php" target="_self">
-                        <span class="material-icons-outlined">manage_accounts</span> Users
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="sms.php" target="_self">
-                        <span class="material-icons-outlined">message</span> SMS
-                    </a>
-                </li>
-                <li class="sidebar-list-item">
-                    <a href="cms.php" target="_self">
-                        <span class="material-icons-outlined">settings</span> Settings
-                    </a>
-                </li>
+                <?php if ($_SESSION['user_type'] == 'Administrator') : ?>
+                    <hr class="sidebar-divider hr-sidebar-divider">
+                    <li class="sidebar-list-item">
+                        <a href="user.php" target="_self">
+                            <span class="material-icons-outlined">manage_accounts</span> Users
+                        </a>
+                    </li>
+                    <li class="sidebar-list-item">
+                        <a href="sms.php" target="_self">
+                            <span class="material-icons-outlined">message</span> SMS
+                        </a>
+                    </li>
+
+                <?php endif; ?>
+
             </ul>
         </aside>
         <!-- End Sidebar -->

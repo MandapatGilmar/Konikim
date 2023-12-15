@@ -57,17 +57,20 @@ if (isset($_GET['delid'])) {
     <div class="grid-container">
         <!-- Header -->
         <header class="header">
+            <div class="menu-icon" onclick="openSidebar()">
+                <span class="material-icons-outlined">menu</span>
+            </div>
             <div class="header-right" style="margin-left: 900px;">
                 <h4><?php echo htmlspecialchars($userFirstName); ?> - <?php echo htmlspecialchars($userType); ?></h4>
             </div>
-            <span class="material-icons-outlined" id="userIcon">account_circle</span>
-            <div id="userOptions" class="user-options" style="display: none;">
-                <form>
-                    <button type="button" id="logoutButton">Logout</button>
-                </form>
+            <div class="header-right">
+                <span class="material-icons-outlined" id="userIcon">account_circle</span>
+                <div id="userOptions" class="user-options" style="display: none;">
+                    <form>
+                        <button type="button" id="logoutButton">Logout</button>
+                    </form>
+                </div>
             </div>
-
-
             <script>
                 document.getElementById('userIcon').addEventListener('click', function() {
                     var userOptions = document.getElementById('userOptions');
@@ -155,11 +158,7 @@ if (isset($_GET['delid'])) {
                             <span class="material-icons-outlined">message</span> SMS
                         </a>
                     </li>
-                    <li class="sidebar-list-item">
-                        <a href="cms.php" target="_self">
-                            <span class="material-icons-outlined">settings</span> Settings
-                        </a>
-                    </li>
+
                 <?php endif; ?>
             </ul>
 

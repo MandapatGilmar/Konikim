@@ -99,6 +99,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     </form>
                 </div>
             </div>
+            <script>
+                document.getElementById('userIcon').addEventListener('click', function() {
+                    var userOptions = document.getElementById('userOptions');
+                    if (userOptions.style.display === 'none') {
+                        userOptions.style.display = 'block';
+                    } else {
+                        userOptions.style.display = 'none';
+                    }
+                });
+
+                document.getElementById('logoutButton').addEventListener('click', function() {
+                    fetch('logout.php') // Make sure the path to logout.php is correct
+                        .then(response => {
+                            // Redirect to login page or show a logged out message
+                            window.location.href = 'login.php'; // Replace 'login.php' with your login page
+                        })
+                        .catch(error => console.error('Error:', error));
+                });
+            </script>
         </header>
         <!-- End Header -->
 
@@ -167,11 +186,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <span class="material-icons-outlined">message</span> SMS
                         </a>
                     </li>
-                    <li class="sidebar-list-item">
-                        <a href="cms.php" target="_self">
-                            <span class="material-icons-outlined">settings</span> Settings
-                        </a>
-                    </li>
+
                 <?php endif; ?>
             </ul>
 

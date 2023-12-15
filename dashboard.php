@@ -35,12 +35,50 @@ if ($row = mysqli_fetch_assoc($purchasequery)) {
     $purchaseCount = $row['purchaseCount'];
 }
 
+$supplierquery = mysqli_query($conn, "SELECT COUNT(*) as supplierCount FROM supplier_list");
+$supplierCount = 0;
+
+if ($row = mysqli_fetch_assoc($supplierquery)) {
+    $supplierCount = $row['supplierCount'];
+}
+
 $salesquery = mysqli_query($conn, "SELECT COUNT(*) as salesCount FROM sales_orders");
 $salesCount = 0;
 
 if ($row = mysqli_fetch_assoc($salesquery)) {
     $salesCount = $row['salesCount'];
 }
+
+$salesquery = mysqli_query($conn, "SELECT SUM(soGrandTotal) as salesTotal FROM sales_orders");
+$salesTotal = 0.0;
+
+if ($row = mysqli_fetch_assoc($salesquery)) {
+    $salesTotal = $row['salesTotal'];
+}
+
+$purchasequery = mysqli_query($conn, "SELECT SUM(poGrandtotal) as purchaseTotal FROM purchase_orders");
+$purchaseTotal = 0.0;
+
+if ($row = mysqli_fetch_assoc($purchasequery)) {
+    $purchaseTotal = $row['purchaseTotal'];
+}
+
+$returnquery = mysqli_query($conn, "SELECT SUM(subtotal) as returnTotal FROM return_orders");
+$returnTotal = 0.0;
+
+if ($row = mysqli_fetch_assoc($returnquery)) {
+    $returnTotal = $row['returnTotal'];
+}
+
+$criticalLevel = 10;
+
+$criticalQuery = mysqli_query($conn, "SELECT COUNT(*) as criticalCount FROM inventory WHERE available_stocks <= $criticalLevel");
+$criticalCount = 0;
+
+if ($row = mysqli_fetch_assoc($criticalQuery)) {
+    $criticalCount = $row['criticalCount'];
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -172,11 +210,6 @@ if ($row = mysqli_fetch_assoc($salesquery)) {
                             <span class="material-icons-outlined">message</span> SMS
                         </a>
                     </li>
-                    <li class="sidebar-list-item">
-                        <a href="cms.php" target="_self">
-                            <span class="material-icons-outlined">settings</span> Settings
-                        </a>
-                    </li>
                 <?php endif; ?>
             </ul>
 
@@ -197,6 +230,9 @@ if ($row = mysqli_fetch_assoc($salesquery)) {
                         <span class="material-icons-outlined text-blue">inventory_2</span>
                     </div>
                     <span class="text-primary font-weight-bold"><?php echo $productCount; ?></span>
+                    <a href="products.php">
+                        <h5>Details</h5>
+                    </a>
                 </div>
 
                 <div class="card">
@@ -205,6 +241,9 @@ if ($row = mysqli_fetch_assoc($salesquery)) {
                         <span class="material-icons-outlined text-orange">add_shopping_cart</span>
                     </div>
                     <span class="text-primary font-weight-bold"><?php echo $purchaseCount; ?></span>
+                    <a href="purchase_orders.php">
+                        <h5>Details</h5>
+                    </a>
                 </div>
 
                 <div class="card">
@@ -213,33 +252,67 @@ if ($row = mysqli_fetch_assoc($salesquery)) {
                         <span class="material-icons-outlined text-green">shopping_cart</span>
                     </div>
                     <span class="text-primary font-weight-bold"><?php echo $salesCount; ?></span>
+                    <a href="sales_orders.php">
+                        <h5>Details</h5>
+                    </a>
                 </div>
 
                 <div class="card">
                     <div class="card-inner">
                         <p class="text-primary">CRITICAL LEVEL</p>
-                        <span class="material-icons-outlined text-red">notification_important</span>
+                        <span class="material-icons-outlined text-red">warning</span>
                     </div>
-                    <span class="text-primary font-weight-bold">2</span>
-                    <h5>Details</h5>
-
+                    <span class="text-primary font-weight-bold"><?php echo $criticalCount; ?></span>
+                    <a href="inventory.php">
+                        <h5>Details</h5>
+                    </a>
                 </div>
+
+
+                <div class="card">
+                    <div class="card-inner">
+                        <p class="text-primary">TOTAL PURCHASE ORDERS</p>
+                        <span class="text-pink" style="color:#00ffc3;">&#8369;</span>
+                    </div>
+                    <span class="text-primary font-weight-bold"><?php echo $purchaseTotal; ?></span>
+                    <a href="purchase_orders.php">
+                        <h5>Details</h5>
+                    </a>
+                </div>
+                <div class="card">
+                    <div class="card-inner">
+                        <p class="text-primary">TOTAL SALES ORDERS</p>
+                        <span class="text-pink" style="color: #ae00ff;">&#8369;</span>
+                    </div>
+                    <span class="text-primary font-weight-bold"><?php echo $salesTotal; ?></span>
+                    <a href="sales_orders.php">
+                        <h5>Details</h5>
+                    </a>
+                </div>
+                <div class="card">
+                    <div class="card-inner">
+                        <p class="text-primary">TOTAL RETURN ORDERS</p>
+                        <span class="material-icons-outlined text-red">assignment_return</span>
+                    </div>
+                    <span class="text-primary font-weight-bold"><?php echo $returnTotal; ?></span>
+                    <a href="return_list.php">
+                        <h5>Details</h5>
+                    </a>
+                </div>
+                <div class="card">
+                    <div class="card-inner">
+                        <p class="text-primary">SUPPLIERS</p>
+                        <span class="material-icons-outlined text-blue">groups</span>
+                    </div>
+                    <span class="text-primary font-weight-bold"><?php echo $supplierCount; ?></span>
+                    <a href="supplier.php">
+                        <h5>Details</h5>
+                    </a>
+                </div>
+
 
             </div>
 
-            <div class="charts">
-
-                <div class="charts-card">
-                    <p class="chart-title">Top 5 Products</p>
-                    <div id="bar-chart"></div>
-                </div>
-
-                <div class="charts-card">
-                    <p class="chart-title">Purchase and Sales Orders</p>
-                    <div id="area-chart"></div>
-                </div>
-
-            </div>
         </main>
         <!-- End Main -->
 
@@ -249,14 +322,6 @@ if ($row = mysqli_fetch_assoc($salesquery)) {
     <!-- ApexCharts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.3/apexcharts.min.js"></script>
     <!-- Custom JS -->
-    <script src="js\scipt.js"></script>
-    <script>
-        // After logout, clear the browser history
-        if (window.history.replaceState) {
-            window.history.replaceState(null, null, window.location.href);
-        }
-    </script>
-
 </body>
 
 </html>

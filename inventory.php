@@ -149,11 +149,7 @@ header("Pragma: no-cache");
                             <span class="material-icons-outlined">message</span> SMS
                         </a>
                     </li>
-                    <li class="sidebar-list-item">
-                        <a href="cms.php" target="_self">
-                            <span class="material-icons-outlined">settings</span> Settings
-                        </a>
-                    </li>
+
                 <?php endif; ?>
             </ul>
 
@@ -196,37 +192,41 @@ header("Pragma: no-cache");
                                 <tbody>
                                     <?php
                                     require_once 'db_config.php';
-                                    $sql = "SELECT 
-                inventory.*, 
-                product_list.productcategory, 
-                product_list.productattributes 
-            FROM 
-                inventory 
-            JOIN 
-                product_list ON inventory.product_id = product_list.id"; // Corrected JOIN clause
+                                    $sql = "SELECT inventory.*, product_list.productcategory, product_list.productattributes FROM inventory JOIN product_list ON inventory.product_id = product_list.id";
 
                                     $result = mysqli_query($conn, $sql);
                                     if (!$result) {
                                         echo "Error: " . mysqli_error($conn);
                                     } else {
                                         $count = 1;
+                                        $criticalLevel = 10;
+                                        $reorderPoint = 20;
                                         while ($row = mysqli_fetch_assoc($result)) {
                                             echo "<tr>
-                    <td>" . $count . "</td>
-                    <td>" . htmlspecialchars($row['supplier']) . "</td>
-                    <td>" . htmlspecialchars($row['productname']) . "</td>
-                    <td>" . htmlspecialchars($row['productunit']) . "</td>
-                    <td>" . htmlspecialchars($row['productcategory']) . "</td>
-                    <td>" . htmlspecialchars($row['productattributes']) . "</td>
-                    <td>" . htmlspecialchars($row['available_stocks']) . "</td>
-                   
-                  </tr>";
+                <td>" . $count . "</td>
+                <td>" . htmlspecialchars($row['supplier']) . "</td>
+                <td>" . htmlspecialchars($row['productname']) . "</td>
+                <td>" . htmlspecialchars($row['productunit']) . "</td>
+                <td>" . htmlspecialchars($row['productcategory']) . "</td>
+                <td>" . htmlspecialchars($row['productattributes']) . "</td>
+                <td>";
+
+                                            if ($row['available_stocks'] <= $criticalLevel) {
+                                                echo "<span class='material-icons-outlined text-red' title='Critical Level'>error</span> ";
+                                            } elseif ($row['available_stocks'] <= $reorderPoint) {
+                                                echo "<span class='material-icons-outlined text-orange' title='Below Reorder Point'>autorenew</span> ";
+                                            }
+
+                                            echo htmlspecialchars($row['available_stocks']) . "</td>
+            </tr>";
                                             $count++;
                                         }
                                     }
-                                    mysqli_close($conn); // Close the database connection
+                                    mysqli_close($conn);
                                     ?>
                                 </tbody>
+
+
                             </table>
                         </div>
                     </div>

@@ -149,11 +149,7 @@ header("Pragma: no-cache");
                             <span class="material-icons-outlined">message</span> SMS
                         </a>
                     </li>
-                    <li class="sidebar-list-item">
-                        <a href="cms.php" target="_self">
-                            <span class="material-icons-outlined">settings</span> Settings
-                        </a>
-                    </li>
+
                 <?php endif; ?>
             </ul>
 
@@ -167,7 +163,14 @@ header("Pragma: no-cache");
             </div>
 
             <div class="main-cards">
-
+                <div class="card">
+                    <div class="card-inner">
+                        <p class="text-primary">SUPPLIERS</p>
+                        <span class="material-icons-outlined text-blue">groups</span>
+                    </div>
+                    <a href="generate_pdf.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;">PDF</a>
+                    <a href="export_excel.php" class="btn btn-success" style="margin-top: 10px; position: relative; background-color: #02964C; border-color: #02964C;">EXCEL</a>
+                </div>
                 <div class="card">
                     <div class="card-inner">
                         <p class="text-primary">PRODUCTS LIST</p>
@@ -209,14 +212,6 @@ header("Pragma: no-cache");
                     </div>
                     <a href="#" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;">PDF</a>
                     <a href="#" class="btn btn-success" style="margin-top: 10px; position: relative; background-color: #02964C; border-color: #02964C;">EXCEL</a>
-                </div>
-                <div class="card">
-                    <div class="card-inner">
-                        <p class="text-primary">SUPPLIERS</p>
-                        <span class="material-icons-outlined text-blue">groups</span>
-                    </div>
-                    <a href="generate_pdf.php" class="btn btn-success" style="background-color: #cc3c43; border-color: #cc3c43;">PDF</a>
-                    <a href="export_excel.php" class="btn btn-success" style="margin-top: 10px; position: relative; background-color: #02964C; border-color: #02964C;">EXCEL</a>
                 </div>
 
 

@@ -195,11 +195,7 @@ if ($_SERVER['REQUEST_METHOD'] == "POST" and isset($_POST['submit'])) {
                             <span class="material-icons-outlined">message</span> SMS
                         </a>
                     </li>
-                    <li class="sidebar-list-item">
-                        <a href="cms.php" target="_self">
-                            <span class="material-icons-outlined">settings</span> Settings
-                        </a>
-                    </li>
+
                 <?php endif; ?>
             </ul>
         </aside>
