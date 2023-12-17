@@ -18,7 +18,9 @@ if (isset($_POST['id'])) {
                                            FROM sales_order_items soi 
                                            LEFT JOIN product_list pl ON soi.product_id = pl.id 
                                            WHERE soi.sales_order_id = '$salesId'");
+        echo "<div style='text-align: center; margin-bottom: 20px;'>";
 
+        echo "<img src='img/logo.png' alt='Logo' style='width: 100px; height: auto;'>";
         // Header of the details display
         echo "<div style='text-align: center; margin-bottom: 20px;'>
                 <h3 style='color: #02964C;'>Sales Order</h3>

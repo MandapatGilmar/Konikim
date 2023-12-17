@@ -15,6 +15,9 @@ if (isset($_POST['id'])) {
         // Fetch related items for this purchase order
         $itemsQuery = mysqli_query($conn, "SELECT * FROM purchase_order_items WHERE purchase_order_id = '$purchaseId'");
 
+        echo "<div style='text-align: center; margin-bottom: 20px;'>";
+
+        echo "<img src='img/logo.png' alt='Logo' style='width: 100px; height: auto;'>";
         // Header of the receipt
         echo "<div style='text-align: center; margin-bottom: 20px;'>
                 <h3 style='color: #02964C;'>Purchase Order</h3>

@@ -316,7 +316,6 @@ header("Pragma: no-cache");
         }
     </script>
 
-    </script>
 </body>
 
 </html>
