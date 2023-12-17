@@ -285,7 +285,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <label for="userType">User Type</label>
                             <select id="userType" name="user_level" class="form-control" required>
                                 <option value="Administrator">Administrator</option>
-                                <option value="Staff">Staff</option>
+                                <option value="Managing Parter">Managing Parter</option>
+                                <option value="Sales Clerk">Sales Clerk</option>
+                                <option value="Inventory Clerk">Inventory Clerk</option>
+
                             </select>
                         </div>
                     </div>

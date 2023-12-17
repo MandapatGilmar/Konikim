@@ -208,7 +208,7 @@ header("Pragma: no-cache");
                                                 <td><?php echo $row['dateCreated']; ?></td>
                                                 <td>
                                                     <div style="display: flex; align-items: center;">
-                                                        <a href="#" class="btn btn-info btn-sm" style="margin-right: 8px; position: relative;"><span class="glyphicon glyphicon-search"></span> View </a>
+                                                        <a href="#" class="btn btn-info btn-sm view-sales-order" data-salesid="<?php echo htmlentities($row['id']); ?>" style="margin-right: 8px;"><span class="glyphicon glyphicon-search"></span> View </a>
                                                         <a href="#" class="btn btn-warning btn-sm" style="margin-right: 8px; position: relative;"><span class="glyphicon glyphicon-pencil"></span> Edit </a>
                                                         <a href="#" onClick="return confirm('Do you really want to remove this record?')" class="btn btn-danger btn-sm" style="background-color: #cc3c43; border-color: #cc3c43;"><span class="glyphicon glyphicon-trash"></span> Delete </a>
                                                     </div>
@@ -219,6 +219,26 @@ header("Pragma: no-cache");
                                         }
                                     }
                                     ?>
+                                    <div class="modal fade" id="productDetailsModal" tabindex="-1" role="dialog" aria-labelledby="productDetailsModalLabel" aria-hidden="true">
+                                        <div class="modal-dialog modal-lg">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                                                    <h4 class="modal-title" id="productDetailsModalLabel"><b>Sales Order Details</b></h4>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <div id="orderDetailsContent">
+                                                        <!-- Dynamic content will be loaded here -->
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-primary btn-sm" onclick="printOrderDetails()">Print</button>
+
+                                                    <button type="button" class="btn btn-danger btn-sm" data-dismiss="modal">Close</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </tbody>
                             </table>
                         </div>
@@ -245,6 +265,57 @@ header("Pragma: no-cache");
                 });
             });
         });
+    </script>
+    <script>
+        $(document).ready(function() {
+            $('.view-sales-order').on('click', function(e) {
+                e.preventDefault();
+                var salesId = $(this).data('salesid'); // Corrected variable name
+                $.ajax({
+                    url: 'sales_order_view.php', // Ensure this is the correct path
+                    method: 'POST',
+                    data: {
+                        id: salesId // Ensure this matches the data attribute
+                    },
+                    success: function(response) {
+                        $('#productDetailsModal .modal-body').html(response);
+                        $('#productDetailsModal').modal('show');
+                    }
+                });
+            });
+        });
+    </script>
+    <script>
+        function printOrderDetails() {
+            var modalContent = document.getElementById('productDetailsModal').innerHTML;
+            var printWindow = window.open('', '_blank', 'height=600,width=800');
+
+            printWindow.document.write('<html><head><title>Print</title>');
+            printWindow.document.write('<style>');
+            // Hide buttons
+            printWindow.document.write('button { display: none; }');
+            // Additional styles
+            printWindow.document.write('th { background-color: #02964C; color: white; }');
+            printWindow.document.write('body { font-family: Arial, sans-serif; }');
+            printWindow.document.write('.modal-header { color: green; }');
+            printWindow.document.write('.modal-body { padding: 20px; }');
+            // Add more CSS rules as needed
+            printWindow.document.write('</style></head><body>');
+            printWindow.document.write(modalContent);
+            printWindow.document.write('</body></html>');
+
+            printWindow.document.close();
+            printWindow.focus();
+
+            printWindow.onload = function() {
+                setTimeout(function() {
+                    printWindow.print();
+                    printWindow.close();
+                }, 250);
+            };
+        }
+    </script>
+
     </script>
 </body>
 

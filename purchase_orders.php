@@ -52,6 +52,8 @@ if (isset($_GET['delid'])) {
         echo "Error: " . $e->getMessage();
     }
 }
+
+
 ?>
 
 <!DOCTYPE html>
@@ -236,12 +238,16 @@ if (isset($_GET['delid'])) {
                                             // Determine the status string and corresponding class
                                             if ($row['status'] == 0) {
                                                 $statusString = 'Pending';
-                                                $statusClass = 'label label-danger';
+                                                $statusClass = 'label label-warning';
                                                 $isReceived = false;
-                                            } else {
+                                            } elseif ($row['status'] == 1) {
                                                 $statusString = 'Received';
                                                 $statusClass = 'label label-success';
                                                 $isReceived = true;
+                                            } elseif ($row['status'] == 2) {
+                                                $statusString = 'Cancelled';
+                                                $statusClass = 'label label-danger';
+                                                $isReceived = false;
                                             }
                                     ?>
                                             <tr>
@@ -255,8 +261,10 @@ if (isset($_GET['delid'])) {
                                                 <td>
                                                     <div style="display: flex; align-items: center;">
                                                         <a href="#" class="btn btn-info btn-sm view-purchase-order" data-purchaseid="<?php echo htmlentities($row['id']); ?>" style="margin-right: 8px;"><span class="glyphicon glyphicon-search"></span> View </a>
-                                                        <?php if (!$isReceived) : ?>
+                                                        <?php if ($row['status'] == 0) : // Check if the status is 'Pending' 
+                                                        ?>
                                                             <a href="received_items.php?receivedid=<?php echo htmlentities($row['id']); ?>" class="btn btn-warning btn-sm" style="margin-right: 8px; background-color: #02964C; border-color: #02964C;"><span class=" glyphicon glyphicon-ok"></span> Received </a>
+                                                            <a href="purchase_orders_cancel.php?cancelid=<?php echo htmlentities($row['id']); ?>" class="btn btn-warning btn-sm" style="margin-right: 8px; background-color: #cc3c43; border-color: #cc3c43;" onClick="return confirm('Are you sure you want to cancel this order?')"><span class="glyphicon glyphicon-ban-circle"></span> Cancel </a>
                                                             <a href="purchase_order_edit.php?editid=<?php echo htmlentities($row['id']); ?>" class="btn btn-warning btn-sm" style="margin-right: 8px;"><span class="glyphicon glyphicon-pencil"></span> Edit </a>
                                                             <a href="purchase_orders.php?delid=<?php echo htmlentities($row['id']); ?>" onClick="return confirm('Do you really want to remove this record?')" class="btn btn-danger btn-sm" style="background-color: #cc3c43; border-color: #cc3c43;"><span class="glyphicon glyphicon-trash"></span> Delete </a>
                                                         <?php endif; ?>
@@ -269,27 +277,26 @@ if (isset($_GET['delid'])) {
                                     }
                                     ?>
                                     <div class="modal fade" id="productDetailsModal" tabindex="-1" role="dialog" aria-labelledby="productDetailsModalLabel" aria-hidden="true">
-                                        <div class="modal-dialog modal-lg"> <!-- Change this line for a larger modal -->
+                                        <div class="modal-dialog modal-lg">
                                             <div class="modal-content">
                                                 <div class="modal-header">
                                                     <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
                                                     <h4 class="modal-title" id="productDetailsModalLabel"><b>Purchase Order Details</b></h4>
                                                 </div>
                                                 <div class="modal-body">
-                                                    <!-- Content will be loaded here via jQuery -->
-                                                    <!-- Example content -->
                                                     <div id="orderDetailsContent">
-                                                        <!-- Dynamic content goes here -->
+                                                        <!-- Dynamic content will be loaded here -->
                                                     </div>
-                                                    <!-- End Example content -->
                                                 </div>
                                                 <div class="modal-footer">
                                                     <button type="button" class="btn btn-primary btn-sm" onclick="printOrderDetails()">Print</button>
+
                                                     <button type="button" class="btn btn-danger btn-sm" data-dismiss="modal">Close</button>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
+
                                 </tbody>
                             </table>
                         </div>
@@ -328,20 +335,6 @@ if (isset($_GET['delid'])) {
             });
         });
     </script>
-    <script>
-        function printOrderDetails() {
-            var content = document.getElementById("orderDetailsContent").innerHTML;
-            var printWindow = window.open('', '', 'height=600,width=800');
-            printWindow.document.write('<html><head><title>Print</title>');
-            // Optionally include a link to a CSS file for styling
-            printWindow.document.write('<link rel="stylesheet" href="print.css" type="text/css" />');
-            printWindow.document.write('</head><body>');
-            printWindow.document.write(content);
-            printWindow.document.write('</body></html>');
-            printWindow.document.close();
-            printWindow.print();
-        }
-    </script>
     <script src="js\scipt.js"></script>
     <script>
         $(document).ready(function() {
@@ -358,6 +351,36 @@ if (isset($_GET['delid'])) {
 
     <!-- Custom JS -->
     <script src="js\scipt.js"></script>
+    <script>
+        function printOrderDetails() {
+            var modalContent = document.getElementById('productDetailsModal').innerHTML;
+            var printWindow = window.open('', '_blank', 'height=600,width=800');
+
+            printWindow.document.write('<html><head><title>Print</title>');
+            printWindow.document.write('<style>');
+            // Hide buttons
+            printWindow.document.write('button { display: none; }');
+            // Additional styles
+            printWindow.document.write('th { background-color: #02964C; color: white; }');
+            printWindow.document.write('body { font-family: Arial, sans-serif; }');
+            printWindow.document.write('.modal-header { color: green; }');
+            printWindow.document.write('.modal-body { padding: 20px; }');
+            // Add more CSS rules as needed
+            printWindow.document.write('</style></head><body>');
+            printWindow.document.write(modalContent);
+            printWindow.document.write('</body></html>');
+
+            printWindow.document.close();
+            printWindow.focus();
+
+            printWindow.onload = function() {
+                setTimeout(function() {
+                    printWindow.print();
+                    printWindow.close();
+                }, 250);
+            };
+        }
+    </script>
 </body>
 
 </html>
